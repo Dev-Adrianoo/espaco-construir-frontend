@@ -7,6 +7,9 @@ const RegisterTeacherPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
+    Phone: "",
+    CPNJ: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -17,8 +20,8 @@ const RegisterTeacherPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // In a real app, send data to backend
-    alert(`Professor(a) cadastrado(a): ${formData.name}, ${formData.email}`);
-    setFormData({ name: "", email: "" });
+    alert(`Professor(a) cadastrado(a): ${formData.name}, ${formData.email}, ${formData.password}, ${formData.Phone}, ${formData.CPNJ}`);
+    setFormData({ name: "", email: "", password: "", Phone: "", CPNJ: "" });
   };
 
   return (
@@ -52,6 +55,24 @@ const RegisterTeacherPage: React.FC = () => {
               onChange={handleChange}
               required
               type="email"
+            />
+            <Input
+              label="CPNJ"
+              id="CPNJ"
+              name="CPNJ"
+              placeholder="Digite o CPNJ"
+              value={formData.CPNJ}
+              onChange={handleChange}
+              required
+            />
+            <Input 
+              label="Telefone"
+              id="Phone"
+              name="Phone"
+              placeholder="Digite o telefone" 
+              value={formData.Phone}
+              onChange={handleChange}
+              required
             />
             <CardFooter className="flex justify-end">
               <Button type="submit">Cadastrar</Button>

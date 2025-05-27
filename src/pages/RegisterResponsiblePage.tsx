@@ -2,23 +2,57 @@ import React, { useState } from "react";
 import Card, { CardHeader, CardBody, CardFooter } from "../components/Card";
 import Input from "../components/Input";
 import Button from "../components/Button";
+import { apiService } from "../services/api";
+import { AxiosError } from "axios";
 
 const RegisterResponsiblePage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    email: "",
+    password: "",
   });
+  
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, send data to backend
-    alert(`Responsável cadastrado: ${formData.name}, ${formData.phone}`);
-    setFormData({ name: "", phone: "" });
+    setError(null);
+    setSuccess(false);
+    setIsLoading(true);
+
+    try {
+      console.log(
+        "Sending registration request to:",
+        import.meta.env.VITE_API_URL
+      );
+      const response = await apiService.registerResponsible(formData);
+      console.log("Registration successful:", response.data);
+      setSuccess(true);
+      setFormData({ name: "", phone: "", email: "", password: "" });
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      console.error("Registration error:", error);
+
+      if (error.code === "ERR_NETWORK") {
+        setError(
+          "Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:8080"
+        );
+      } else {
+        setError(
+          error.response?.data?.message || "Ocorreu um erro durante o cadastro"
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -34,6 +68,18 @@ const RegisterResponsiblePage: React.FC = () => {
           </p>
         </CardHeader>
         <CardBody>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-600">
+                Cadastro realizado com sucesso!
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               label="Nome do Responsável"
@@ -54,8 +100,31 @@ const RegisterResponsiblePage: React.FC = () => {
               required
               type="tel"
             />
+            <Input
+              label="Email"
+              id="email"
+              name="email"
+              placeholder="Digite o email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              type="email"
+            />
+            <Input
+              label="Senha"
+              id="password"
+              name="password"
+              placeholder="Digite a senha"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              type="password"
+            />
+
             <CardFooter className="flex justify-end">
-              <Button type="submit">Cadastrar</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Cadastrando..." : "Cadastrar"}
+              </Button>
             </CardFooter>
           </form>
         </CardBody>
