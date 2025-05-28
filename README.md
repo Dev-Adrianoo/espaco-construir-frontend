@@ -21,23 +21,19 @@
 1. Clone o repositório:
 
    ```bash
-   git clone [URL_DO_REPOSITÓRIO]
+   git clone https://github.com/Dev-Adrianoo/espaco-construir-frontend.git
    cd espaco-construir-frontend
    ```
 
-2. Instale as dependências do projeto:
+2. Execute o script de inicialização:
 
    ```bash
-   npm install
+   .\start.bat
    ```
 
-3. Inicie o servidor de desenvolvimento:
+   Este script irá automaticamente instalar as dependências e iniciar o servidor de desenvolvimento.
 
-   ```bash
-   npm run dev
-   ```
-
-4. Acesse o projeto:
+3. Acesse o projeto:
    - O servidor estará rodando em `http://localhost:5173` (porta padrão do Vite)
    - Abra seu navegador e acesse a URL exibida no terminal
 
