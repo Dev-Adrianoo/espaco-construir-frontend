@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Card, { CardHeader, CardBody, CardFooter } from "../components/Card";
 import Input from "../components/Input";
 import Button from "../components/Button";
+import { apiService } from "../services/api";
 
 const RegisterTeacherPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -17,12 +18,27 @@ const RegisterTeacherPage: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ADICIONAR TRY CATCH
+  // FEEDBACK PARA O USUARIO DEPOIS DO CADASTRO
+  // VALIDACAO DOS DADOS
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, send data to backend
-    alert(`Professor(a) cadastrado(a): ${formData.name}, ${formData.email}, ${formData.password}, ${formData.Phone}, ${formData.CPNJ}`);
+    
+    const response  = await apiService.registerTeacher(
+      {
+      name: formData.name, 
+      email: formData.email,
+      password: formData.password,
+      phone: formData.Phone, 
+      cnpj: formData.CPNJ
+    }
+    );
+    console.log(response);
     setFormData({ name: "", email: "", password: "", Phone: "", CPNJ: "" });
   };
+
+
 
   return (
     <div className="max-w-md mx-auto mt-8">

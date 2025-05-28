@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
@@ -21,14 +20,14 @@ api.interceptors.request.use((config) => {
 export const apiService = {
  
   login: (data: { email: string; password: string }) => 
-    api.post('/auth/login', data),
+    api.post('/api/login', data),
   
   registerResponsible: (data: {
     name: string;
     phone: string;
     email: string;
     password: string;
-  }) => api.post('/auth/register/responsible', data),
+  }) => api.post('/api/register/guardians', data),
   
   registerTeacher: (data: {
     name: string;
@@ -36,7 +35,7 @@ export const apiService = {
     password: string;
     phone: string;
     cnpj: string;
-  }) => api.post('/auth/register/teacher', data),
+  }) => api.post('/api/professors', data),
 
   
   registerChild: (data: {
