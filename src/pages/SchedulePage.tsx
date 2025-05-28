@@ -1,24 +1,25 @@
 import React, { useState } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import { Calendar, Clock, X } from "lucide-react";
 
 // Time slots available for booking
 const TIME_SLOTS = [
-  "09:00 AM",
-  "10:00 AM",
-  "11:00 AM",
-  "01:00 PM",
-  "02:00 PM",
-  "03:00 PM",
-  "04:00 PM",
+  "09:00",
+  "10:00",
+  "11:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
 ];
 
 // Mock data for children
 const CHILDREN = [
-  { id: "child1", name: "Emma Johnson" },
-  { id: "child2", name: "Noah Williams" },
+  { id: "child1", name: "Maria Silva" },
+  { id: "child2", name: "Pedro Santos" },
 ];
 
 type ScheduleType = {
@@ -168,9 +169,7 @@ const SchedulePage: React.FC = () => {
                     >
                       <div className="flex flex-col items-center">
                         <span>
-                          {format(new Date(date), "EEEE", {
-                            locale: undefined /* use pt-BR if available */,
-                          })}
+                          {format(new Date(date), "EEEE", { locale: ptBR })}
                         </span>
                         <span>{format(new Date(date), "dd/MM")}</span>
                       </div>

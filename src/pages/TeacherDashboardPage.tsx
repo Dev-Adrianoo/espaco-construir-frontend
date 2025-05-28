@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import Button from "../components/Button";
 import {
@@ -20,38 +21,38 @@ const SCHEDULED_CLASSES = [
   {
     id: "1",
     studentId: "student1",
-    studentName: "Emma Johnson",
+    studentName: "Maria Silva",
     date: new Date().toISOString().split("T")[0], // Today
-    time: "10:00 AM",
+    time: "10:00",
     duration: 60,
-    type: "in-person",
-    parentName: "Sarah Johnson",
-    parentContact: "+1 (555) 123-4567",
-    notes: "Focus on multiplication tables",
+    type: "presencial",
+    parentName: "Ana Silva",
+    parentContact: "+55 (11) 1234-5678",
+    notes: "Foco em tabuada",
   },
   {
     id: "2",
     studentId: "student2",
-    studentName: "Noah Williams",
+    studentName: "Pedro Santos",
     date: new Date().toISOString().split("T")[0], // Today
-    time: "02:00 PM",
+    time: "14:00",
     duration: 60,
     type: "online",
-    parentName: "Michael Williams",
-    parentContact: "+1 (555) 987-6543",
-    notes: "Reading comprehension practice",
+    parentName: "Carlos Santos",
+    parentContact: "+55 (11) 9876-5432",
+    notes: "Prática de compreensão de leitura",
   },
   {
     id: "3",
     studentId: "student3",
-    studentName: "Olivia Davis",
+    studentName: "Julia Oliveira",
     date: addDays(new Date(), 1).toISOString().split("T")[0], // Tomorrow
-    time: "11:00 AM",
+    time: "11:00",
     duration: 60,
-    type: "in-person",
-    parentName: "Jennifer Davis",
-    parentContact: "+1 (555) 222-3333",
-    notes: "Science project assistance",
+    type: "presencial",
+    parentName: "Patricia Oliveira",
+    parentContact: "+55 (11) 2222-3333",
+    notes: "Auxílio no projeto de ciências",
   },
 ];
 
@@ -59,36 +60,36 @@ const SCHEDULED_CLASSES = [
 const STUDENTS = [
   {
     id: "student1",
-    name: "Emma Johnson",
+    name: "Maria Silva",
     age: 8,
-    grade: "3rd",
-    parentName: "Sarah Johnson",
-    parentContact: "+1 (555) 123-4567",
-    learningDifficulties: "Mild dyslexia",
-    personalCondition: "None",
-    classType: "in-person",
+    grade: "3º ano",
+    parentName: "Ana Silva",
+    parentContact: "+55 (11) 1234-5678",
+    learningDifficulties: "Dislexia leve",
+    personalCondition: "Nenhuma",
+    classType: "presencial",
   },
   {
     id: "student2",
-    name: "Noah Williams",
+    name: "Pedro Santos",
     age: 10,
-    grade: "5th",
-    parentName: "Michael Williams",
-    parentContact: "+1 (555) 987-6543",
-    learningDifficulties: "ADHD",
-    personalCondition: "Mild allergy to peanuts",
+    grade: "5º ano",
+    parentName: "Carlos Santos",
+    parentContact: "+55 (11) 9876-5432",
+    learningDifficulties: "TDAH",
+    personalCondition: "Alergia leve a amendoim",
     classType: "online",
   },
   {
     id: "student3",
-    name: "Olivia Davis",
+    name: "Julia Oliveira",
     age: 7,
-    grade: "2nd",
-    parentName: "Jennifer Davis",
-    parentContact: "+1 (555) 222-3333",
-    learningDifficulties: "None",
-    personalCondition: "None",
-    classType: "in-person",
+    grade: "2º ano",
+    parentName: "Patricia Oliveira",
+    parentContact: "+55 (11) 2222-3333",
+    learningDifficulties: "Nenhuma",
+    personalCondition: "Nenhuma",
+    classType: "presencial",
   },
 ];
 
@@ -140,7 +141,9 @@ const TeacherDashboardPage: React.FC = () => {
           onClick={() => setSelectedDate(date)}
         >
           <div className="text-center mb-2">
-            <div className="text-xs text-gray-500">{format(date, "EEE")}</div>
+            <div className="text-xs text-gray-500">
+              {format(date, "EEE", { locale: ptBR })}
+            </div>
             <div
               className={`text-lg font-bold ${
                 isSelected ? "text-indigo-600" : "text-gray-800"

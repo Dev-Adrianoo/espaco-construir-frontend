@@ -4,8 +4,8 @@ import Select from "../components/Select";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 const CHILDREN = [
-  { id: "child1", name: "Emma Johnson" },
-  { id: "child2", name: "Noah Williams" },
+  { id: "child1", name: "Maria Silva" },
+  { id: "child2", name: "Pedro Santos" },
 ];
 
 const LESSON_HISTORY = [
@@ -16,7 +16,7 @@ const LESSON_HISTORY = [
     time: "10:00",
     status: "attended",
     teacherNotes:
-      "Emma teve um ótimo desempenho com multiplicação hoje. Completou todos os exercícios propostos e demonstrou boa compreensão do conceito. Continuaremos praticando com problemas escritos na próxima aula.",
+      "Maria teve um ótimo desempenho com multiplicação hoje. Completou todos os exercícios propostos e demonstrou boa compreensão do conceito. Continuaremos praticando com problemas escritos na próxima aula.",
     teacherName: "Profa. Rodriguez",
   },
   {
@@ -36,7 +36,7 @@ const LESSON_HISTORY = [
     time: "10:00",
     status: "attended",
     teacherNotes:
-      "Focamos em adição e subtração com reagrupamento. Emma teve dificuldade com alguns problemas mais complexos. Estou passando exercícios extras para esta semana.",
+      "Focamos em adição e subtração com reagrupamento. Maria teve dificuldade com alguns problemas mais complexos. Estou passando exercícios extras para esta semana.",
     teacherName: "Profa. Rodriguez",
   },
   {
@@ -46,7 +46,7 @@ const LESSON_HISTORY = [
     time: "15:00",
     status: "attended",
     teacherNotes:
-      "Noah mostrou grande progresso na compreensão de leitura hoje. Lemos uma história curta e ele conseguiu responder perguntas sobre as ideias principais e detalhes de suporte.",
+      "Pedro mostrou grande progresso na compreensão de leitura hoje. Lemos uma história curta e ele conseguiu responder perguntas sobre as ideias principais e detalhes de suporte.",
     teacherName: "Prof. Johnson",
   },
   {
@@ -56,7 +56,7 @@ const LESSON_HISTORY = [
     time: "15:00",
     status: "late",
     teacherNotes:
-      "Noah chegou 15 minutos atrasado. Conseguimos cobrir a maior parte do material planejado, mas por favor, tentem garantir pontualidade para máximo aproveitamento.",
+      "Pedro chegou 15 minutos atrasado. Conseguimos cobrir a maior parte do material planejado, mas por favor, tentem garantir pontualidade para máximo aproveitamento.",
     teacherName: "Prof. Johnson",
   },
 ];

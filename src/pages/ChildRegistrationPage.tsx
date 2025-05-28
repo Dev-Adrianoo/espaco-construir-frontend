@@ -6,18 +6,18 @@ import Button from "../components/Button";
 import Card, { CardHeader, CardBody, CardFooter } from "../components/Card";
 
 const gradeOptions = [
-  { value: "kindergarten", label: "Kindergarten" },
-  { value: "1st", label: "1st Grade" },
-  { value: "2nd", label: "2nd Grade" },
-  { value: "3rd", label: "3rd Grade" },
-  { value: "4th", label: "4th Grade" },
-  { value: "5th", label: "5th Grade" },
-  { value: "6th", label: "6th Grade" },
+  { value: "kindergarten", label: "Educação Infantil" },
+  { value: "1st", label: "1º ano" },
+  { value: "2nd", label: "2º ano" },
+  { value: "3rd", label: "3º ano" },
+  { value: "4th", label: "4º ano" },
+  { value: "5th", label: "5º ano" },
+  { value: "6th", label: "6º ano" },
 ];
 
 const parentOptions = [
-  { value: "parent1", label: "John Doe" },
-  { value: "parent2", label: "Jane Smith" },
+  { value: "parent1", label: "João Silva" },
+  { value: "parent2", label: "Maria Santos" },
 ];
 
 // Mock children data for demonstration
@@ -92,10 +92,9 @@ const ChildRegistrationPage: React.FC = () => {
     <div className="max-w-3xl mx-auto">
       <Card>
         <CardHeader>
-          <h1 className="text-2xl font-bold text-gray-800">Register a Child</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Cadastrar Aluno</h1>
           <p className="mt-1 text-gray-600">
-            Please provide information about your child to help us tailor the
-            tutoring experience.
+            Por favor, forneça informações sobre o aluno para ajudar a personalizar a experiência de tutoria.
           </p>
         </CardHeader>
 
@@ -103,21 +102,21 @@ const ChildRegistrationPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
-                label="Child's Full Name"
+                label="Nome Completo do Aluno"
                 id="name"
                 name="name"
-                placeholder="Enter child's name"
+                placeholder="Digite o nome do aluno"
                 value={formData.name}
                 onChange={handleChange}
                 required
               />
 
               <Input
-                label="Age"
+                label="Idade"
                 id="age"
                 name="age"
                 type="number"
-                placeholder="Enter child's age"
+                placeholder="Digite a idade do aluno"
                 value={formData.age}
                 onChange={handleChange}
                 required
@@ -125,37 +124,37 @@ const ChildRegistrationPage: React.FC = () => {
             </div>
 
             <Select
-              label="School Grade"
+              label="Série Escolar"
               id="grade"
               name="grade"
               options={gradeOptions}
               value={formData.grade}
               onChange={handleChange}
-              placeholder="Select grade"
+              placeholder="Selecione a série"
               required
             />
 
             <Textarea
-              label="Learning Difficulties (if any)"
+              label="Dificuldades de Aprendizagem (se houver)"
               id="difficulties"
               name="difficulties"
-              placeholder="Describe any learning difficulties or special educational needs"
+              placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
               value={formData.difficulties}
               onChange={handleChange}
             />
 
             <Textarea
-              label="Personal Condition"
+              label="Condição Pessoal"
               id="condition"
               name="condition"
-              placeholder="Any medical conditions, allergies, or personal preferences we should know about"
+              placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
               value={formData.condition}
               onChange={handleChange}
             />
 
             <div className="space-y-2">
               <p className="block text-sm font-medium text-gray-700">
-                Class Type
+                Tipo de Aula
               </p>
               <div className="flex space-x-6">
                 <label className="inline-flex items-center">
@@ -178,19 +177,19 @@ const ChildRegistrationPage: React.FC = () => {
                     checked={formData.classType === "in-person"}
                     onChange={handleRadioChange}
                   />
-                  <span className="ml-2 text-sm text-gray-700">In-person</span>
+                  <span className="ml-2 text-sm text-gray-700">Presencial</span>
                 </label>
               </div>
             </div>
 
             <Select
-              label="Parent/Guardian"
+              label="Responsável"
               id="parent"
               name="parent"
               options={parentOptions}
               value={formData.parent}
               onChange={handleChange}
-              placeholder="Link to responsible parent"
+              placeholder="Vincular ao responsável"
               required
             />
           </form>
@@ -198,9 +197,11 @@ const ChildRegistrationPage: React.FC = () => {
 
         <CardFooter className="flex justify-end">
           <Button variant="outline" className="mr-3">
-            Cancel
+            Cancelar
           </Button>
-          <Button type="submit">Register Child</Button>
+          <Button type="submit">
+            Cadastrar
+          </Button>
         </CardFooter>
       </Card>
     </div>
