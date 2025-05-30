@@ -104,3 +104,42 @@ O projeto utiliza várias ferramentas de desenvolvimento:
 ## Suporte
 
 Em caso de dúvidas ou problemas, por favor abra uma issue no repositório.
+
+## Rotas da Aplicação
+
+A aplicação possui rotas protegidas e públicas, com navegação diferenciada para professores e responsáveis (pais).
+
+### Fluxo de Autenticação
+
+- `/` — Tela inicial de login e seleção de tipo de usuário (professor ou responsável)
+- `/login` — Redireciona para `/`
+
+### Rotas para Professores
+
+- `/teacher-dashboard` — Painel do Professor: visão geral da agenda, alunos e aulas do dia
+- `/students` — Gerenciamento de alunos (cadastro e listagem)
+- `/manage-schedule` — Agenda semanal para professores (visualização e gerenciamento de horários)
+- `/register-teacher` — Cadastro de novo professor
+
+### Rotas para Responsáveis (Pais)
+
+- `/children` — Dashboard de filhos: cadastro e listagem de filhos
+- `/schedule` — Agendar Aula: visualização de horários disponíveis e agendamento de aulas
+- `/history` — Histórico de aulas dos filhos
+- `/register-responsible` — Cadastro de novo responsável
+
+### Outras rotas
+
+- `*` — Qualquer rota não reconhecida redireciona para `/`
+
+---
+
+## Funcionalidades Principais
+
+- **Autenticação mock**: Login e registro via modal, com persistência de tipo de usuário e ID no localStorage
+- **Dashboard do Professor**: Visualização de agenda semanal, gerenciamento de alunos, detalhes de cada aluno
+- **Dashboard do Responsável**: Cadastro e listagem de filhos, agendamento de aulas, histórico de aulas
+- **Agendamento de Aulas**: Tabela moderna, responsiva, com horários customizáveis e status visual
+- **Histórico de Aulas**: Visualização de presença, ausência e atrasos, com anotações do professor
+- **Identidade Visual**: Paleta de cores alinhada ao logo, componentes modernos com TailwindCSS
+- **Acessibilidade e UX**: Mensagens de orientação, tabelas responsivas, feedback visual em botões e status
