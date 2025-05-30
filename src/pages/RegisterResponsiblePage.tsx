@@ -1,18 +1,20 @@
 import React, { useState } from "react";
-import Card, { CardHeader, CardBody, CardFooter } from "../components/Card";
+import Card, { CardHeader, CardBody } from "../components/Card";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
+import Modal from "../components/Modal";
 
 const RegisterResponsiblePage: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
     password: "",
   });
-  
+
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -37,6 +39,7 @@ const RegisterResponsiblePage: React.FC = () => {
       console.log("Registration successful:", response.data);
       setSuccess(true);
       setFormData({ name: "", phone: "", email: "", password: "" });
+      setIsModalOpen(false);
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
       console.error("Registration error:", error);
@@ -68,67 +71,77 @@ const RegisterResponsiblePage: React.FC = () => {
           </p>
         </CardHeader>
         <CardBody>
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-green-600">
-                Cadastro realizado com sucesso!
-              </p>
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Nome do Responsável"
-              id="name"
-              name="name"
-              placeholder="Digite o nome"
-              value={formData.name}
-              onChange={handleChange}
-              required
-            />
-            <Input
-              label="Telefone"
-              id="phone"
-              name="phone"
-              placeholder="Digite o telefone"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-              type="tel"
-            />
-            <Input
-              label="Email"
-              id="email"
-              name="email"
-              placeholder="Digite o email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              type="email"
-            />
-            <Input
-              label="Senha"
-              id="password"
-              name="password"
-              placeholder="Digite a senha"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              type="password"
-            />
-
-            <CardFooter className="flex justify-end">
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Cadastrando..." : "Cadastrar"}
-              </Button>
-            </CardFooter>
-          </form>
+          <Button onClick={() => setIsModalOpen(true)}>
+            Abrir Formulário de Cadastro
+          </Button>
         </CardBody>
       </Card>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Cadastro de Responsável"
+      >
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600">
+              Cadastro realizado com sucesso!
+            </p>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Input
+            label="Nome do Responsável"
+            id="name"
+            name="name"
+            placeholder="Digite o nome"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+          <Input
+            label="Telefone"
+            id="phone"
+            name="phone"
+            placeholder="Digite o telefone"
+            value={formData.phone}
+            onChange={handleChange}
+            required
+            type="tel"
+          />
+          <Input
+            label="Email"
+            id="email"
+            name="email"
+            placeholder="Digite o email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            type="email"
+          />
+          <Input
+            label="Senha"
+            id="password"
+            name="password"
+            placeholder="Digite a senha"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            type="password"
+          />
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Cadastrando..." : "Cadastrar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

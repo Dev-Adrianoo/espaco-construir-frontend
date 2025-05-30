@@ -3,6 +3,10 @@ import { motion } from "framer-motion";
 import { useNavigate, Navigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import { GraduationCap } from "lucide-react";
+import Modal from "../components/Modal";
+import Input from "../components/Input";
+import { apiService } from "../services/api";
+import { AxiosError } from "axios";
 
 type UserType = "teacher" | "parent" | null;
 
@@ -28,6 +32,20 @@ export default function AuthFlow() {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [registrationType, setRegistrationType] = useState<UserType>(null);
+  const [registrationFormData, setRegistrationFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    cnpj: "",
+  });
+  const [registrationError, setRegistrationError] = useState<string | null>(
+    null
+  );
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleUserTypeSelect = (type: UserType) => {
     setIsFlipping(true);
@@ -85,6 +103,70 @@ export default function AuthFlow() {
     }
   };
 
+  const handleRegistrationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegistrationError(null);
+    setRegistrationSuccess(false);
+    setIsLoading(true);
+
+    try {
+      if (registrationType === "teacher") {
+        await apiService.registerTeacher({
+          name: registrationFormData.name,
+          email: registrationFormData.email,
+          password: registrationFormData.password,
+          phone: registrationFormData.phone,
+          cnpj: registrationFormData.cnpj,
+        });
+      } else {
+        await apiService.registerResponsible({
+          name: registrationFormData.name,
+          email: registrationFormData.email,
+          password: registrationFormData.password,
+          phone: registrationFormData.phone,
+        });
+      }
+
+      setRegistrationSuccess(true);
+      setRegistrationFormData({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        cnpj: "",
+      });
+      setTimeout(() => {
+        setIsRegistrationModalOpen(false);
+        setRegistrationSuccess(false);
+      }, 2000);
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      console.error("Registration error:", error);
+
+      if (error.code === "ERR_NETWORK") {
+        setRegistrationError(
+          "Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:8080"
+        );
+      } else {
+        setRegistrationError(
+          error.response?.data?.message || "Ocorreu um erro durante o cadastro"
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setRegistrationFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const openRegistrationModal = (type: UserType) => {
+    setRegistrationType(type);
+    setIsRegistrationModalOpen(true);
+  };
+
   // If user is authenticated, render the MainLayout
   if (isAuthenticated && userType) {
     return (
@@ -126,11 +208,101 @@ export default function AuthFlow() {
                 setPassword={setPassword}
                 onSubmit={handleSubmit}
                 error={error}
+                onRegisterClick={openRegistrationModal}
               />
             )}
           </motion.div>
         </motion.div>
       </div>
+
+      <Modal
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+        title={`Cadastro de ${
+          registrationType === "teacher" ? "Professor(a)" : "Responsável"
+        }`}
+      >
+        {registrationError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{registrationError}</p>
+          </div>
+        )}
+        {registrationSuccess && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600">
+              Cadastro realizado com sucesso!
+            </p>
+          </div>
+        )}
+        <form onSubmit={handleRegistrationSubmit} className="space-y-6">
+          <Input
+            label="Nome"
+            id="name"
+            name="name"
+            placeholder="Digite o nome"
+            value={registrationFormData.name}
+            onChange={handleRegistrationChange}
+            required
+          />
+          <Input
+            label="E-mail"
+            id="email"
+            name="email"
+            placeholder="Digite o e-mail"
+            value={registrationFormData.email}
+            onChange={handleRegistrationChange}
+            required
+            type="email"
+          />
+          <Input
+            label="Senha"
+            id="password"
+            name="password"
+            placeholder="Digite a senha"
+            value={registrationFormData.password}
+            onChange={handleRegistrationChange}
+            required
+            type="password"
+          />
+          <Input
+            label="Telefone"
+            id="phone"
+            name="phone"
+            placeholder="Digite o telefone"
+            value={registrationFormData.phone}
+            onChange={handleRegistrationChange}
+            required
+            type="tel"
+          />
+          {registrationType === "teacher" && (
+            <Input
+              label="CNPJ"
+              id="cnpj"
+              name="cnpj"
+              placeholder="Digite o CNPJ"
+              value={registrationFormData.cnpj}
+              onChange={handleRegistrationChange}
+              required
+            />
+          )}
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={() => setIsRegistrationModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              {isLoading ? "Cadastrando..." : "Cadastrar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -258,6 +430,7 @@ type LoginFormProps = {
   setPassword: (password: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   error?: string;
+  onRegisterClick: (type: UserType) => void;
 };
 
 function LoginForm({
@@ -269,6 +442,7 @@ function LoginForm({
   setPassword,
   onSubmit,
   error,
+  onRegisterClick,
 }: LoginFormProps) {
   return (
     <div className="p-8">
@@ -392,22 +566,22 @@ function LoginForm({
         </a>
         {userType === "teacher" && (
           <div className="mt-4">
-            <a
-              href="/register-teacher"
+            <button
+              onClick={() => onRegisterClick("teacher")}
               className="text-sm font-medium text-blue-500 hover:text-blue-700"
             >
               Cadastrar Professor(a)
-            </a>
+            </button>
           </div>
         )}
         {userType === "parent" && (
           <div className="mt-4">
-            <a
-              href="/register-responsible"
+            <button
+              onClick={() => onRegisterClick("parent")}
               className="text-sm font-medium text-blue-500 hover:text-blue-700"
             >
               Cadastrar Responsável
-            </a>
+            </button>
           </div>
         )}
       </div>
