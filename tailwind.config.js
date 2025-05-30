@@ -8,40 +8,31 @@ export default {
       },
       colors: {
         primary: {
-          50: '#fff3e0',
-          100: '#ffe0b2',
-          200: '#ffcc80',
-          300: '#ffb74d',
-          400: '#ffa726',
-          500: '#ff9800',
-          600: '#fb8c00',
-          700: '#f57c00',
-          800: '#ef6c00',
-          900: '#e65100',
+          DEFAULT: '#3B82F6', // Azul principal da logo
+          light: '#60A5FA',
+          dark: '#1D4ED8',
         },
-        secondary: {
-          50: '#e8f5e9',
-          100: '#c8e6c9',
-          200: '#a5d6a7',
-          300: '#81c784',
-          400: '#66bb6a',
-          500: '#4caf50',
-          600: '#43a047',
-          700: '#388e3c',
-          800: '#2e7d32',
-          900: '#1b5e20',
+        success: {
+          DEFAULT: '#4ADE80', // Verde da logo
+          light: '#A7F3D0',
+          dark: '#16A34A',
         },
+        warning: {
+          DEFAULT: '#F59E42', // Laranja da logo
+          light: '#FDE68A',
+          dark: '#EA580C',
+        },
+        danger: {
+          DEFAULT: '#EF4444', // Vermelho da logo
+          light: '#FCA5A5',
+          dark: '#B91C1C',
+        },
+        background: '#F4F7FD', // Fundo da plataforma
+        card: '#FFFFFF', // Cards e áreas principais
         accent: {
-          50: '#e3f2fd',
-          100: '#bbdefb',
-          200: '#90caf9',
-          300: '#64b5f6',
-          400: '#42a5f5',
-          500: '#2196f3',
-          600: '#1e88e5',
-          700: '#1976d2',
-          800: '#1565c0',
-          900: '#0d47a1',
+          DEFAULT: '#1976d2', // Azul escuro para detalhes
+          light: '#64b5f6',
+          dark: '#0d47a1',
         },
       },
     },

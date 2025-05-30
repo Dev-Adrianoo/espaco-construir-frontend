@@ -136,8 +136,8 @@ const SchedulePage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <Card className="overflow-visible">
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+      <Card className="overflow-visible rounded-t-2xl bg-white">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-t-2xl">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Agendar Aula</h1>
             <p className="mt-1 text-gray-600">
@@ -153,19 +153,25 @@ const SchedulePage: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-
+        <p className="block sm:hidden text-center text-xs text-gray-700 bg-gray-100 rounded-md py-2 px-4 mb-3 mt-3 mx-4 flex items-center justify-center gap-1">
+          <span className="text-base">⇄</span>
+          Role para o lado para ver todos os dias disponíveis.
+        </p>
         <CardBody className="overflow-x-auto">
           <div className="min-w-[700px]">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-3 w-28 min-w-[110px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 z-10 bg-white !bg-white shadow-[4px_0_12px_-4px_rgba(0,0,0,0.06)] border-r border-gray-100 overflow-hidden h-full whitespace-nowrap">
                     Horário
                   </th>
-                  {Object.keys(schedule).map((date) => (
+                  {Object.keys(schedule).map((date, idx) => (
                     <th
                       key={date}
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className={
+                        `px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider` +
+                        (idx === 0 ? " hidden sm:table-cell" : "")
+                      }
                     >
                       <div className="flex flex-col items-center">
                         <span>
@@ -180,17 +186,20 @@ const SchedulePage: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {TIME_SLOTS.map((time) => (
                   <tr key={time} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-8 py-4 w-28 min-w-[110px] font-bold text-gray-900 sticky left-0 z-10 bg-white !bg-white shadow-[4px_0_12px_-4px_rgba(0,0,0,0.06)] border-r border-gray-100 overflow-hidden h-full whitespace-nowrap">
                       {time}
                     </td>
-                    {Object.keys(schedule).map((date) => (
+                    {Object.keys(schedule).map((date, idx) => (
                       <td
                         key={`${date}-${time}`}
-                        className={`px-6 py-4 whitespace-nowrap text-center text-sm ${
-                          schedule[date][time].booked
+                        className={
+                          `px-6 py-4 whitespace-nowrap text-center text-sm ` +
+                          (schedule[date][time].booked
                             ? "bg-indigo-50"
-                            : "cursor-pointer hover:bg-indigo-100"
-                        } transition-colors duration-150`}
+                            : "cursor-pointer hover:bg-indigo-100") +
+                          " transition-colors duration-150" +
+                          (idx === 0 ? " hidden sm:table-cell" : "")
+                        }
                         onClick={() => handleSlotClick(date, time)}
                       >
                         {schedule[date][time].booked ? (

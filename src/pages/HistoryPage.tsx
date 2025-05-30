@@ -96,19 +96,19 @@ const HistoryPage: React.FC = () => {
     switch (status) {
       case "attended":
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 text-secondary-800">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-success/10 text-green-700 border border-success">
             Presente
           </span>
         );
       case "absent":
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-danger/10 text-danger border border-danger">
             Ausente
           </span>
         );
       case "late":
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-warning/10 text-warning border border-warning">
             Atrasado
           </span>
         );
