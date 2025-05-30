@@ -12,13 +12,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const storedUserType = localStorage.getItem("userType") as
+    | "teacher"
+    | "parent"
+    | null;
+  const effectiveUserType = userType || storedUserType;
+
   React.useEffect(() => {
-    if (!userType && location.pathname !== "/login") {
+    if (!effectiveUserType && location.pathname !== "/login") {
       navigate("/login");
     }
-  }, [userType, location.pathname, navigate]);
+  }, [effectiveUserType, location.pathname, navigate]);
 
   const handleLogout = () => {
+    localStorage.removeItem("userType");
+    localStorage.removeItem("responsavelId");
     navigate("/login");
   };
 
@@ -29,13 +37,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
   ];
 
   const parentLinks = [
-    { path: "/register-child", label: "Cadastrar Filho" },
-    { path: "/children-list", label: "Filhos" },
+    { path: "/children", label: "Filhos" },
     { path: "/schedule", label: "Agendar Aula" },
     { path: "/history", label: "Histórico" },
   ];
 
-  const links = userType === "teacher" ? teacherLinks : parentLinks;
+  const links = effectiveUserType === "teacher" ? teacherLinks : parentLinks;
 
   return (
     <div className="min-h-screen bg-[#f4f7fd] flex flex-col">
@@ -51,7 +58,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
               </Link>
 
               <nav className="hidden md:ml-10 md:flex md:space-x-8">
-                {userType &&
+                {effectiveUserType &&
                   links.map((link) => (
                     <Link
                       key={link.path}
@@ -68,15 +75,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
               </nav>
             </div>
 
-            {userType && (
+            {effectiveUserType && (
               <div className="hidden md:flex md:items-center gap-4">
                 <span className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                  {userType === "teacher" ? (
+                  {effectiveUserType === "teacher" ? (
                     <GraduationCap className="h-4 w-4 text-blue-500" />
                   ) : (
                     <User className="h-4 w-4 text-blue-500" />
                   )}
-                  {userType === "teacher" ? "Professor(a)" : "Responsável"}
+                  {effectiveUserType === "teacher"
+                    ? "Professor(a)"
+                    : "Responsável"}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -106,7 +115,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
         {isMobileMenuOpen && (
           <div className="md:hidden">
             <div className="pt-2 pb-3 space-y-1">
-              {userType &&
+              {effectiveUserType &&
                 links.map((link) => (
                   <Link
                     key={link.path}
@@ -121,7 +130,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
                     {link.label}
                   </Link>
                 ))}
-              {userType && (
+              {effectiveUserType && (
                 <button
                   onClick={() => {
                     handleLogout();

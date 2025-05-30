@@ -5,6 +5,8 @@ import Button from "../components/Button";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const RegisterResponsiblePage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -142,6 +144,7 @@ const RegisterResponsiblePage: React.FC = () => {
           </div>
         </form>
       </Modal>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

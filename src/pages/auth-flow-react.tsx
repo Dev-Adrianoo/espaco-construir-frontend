@@ -16,11 +16,13 @@ const MOCK_USERS = {
     email: "teacher@example.com",
     password: "password123",
     hasChildren: false,
+    id: "teacher-mock-id",
   },
   parent: {
     email: "parent@example.com",
     password: "password123",
     hasChildren: true,
+    id: "parent-mock-id",
   },
 };
 
@@ -82,6 +84,32 @@ export default function AuthFlow() {
         password === mockUser.password
       ) {
         setIsAuthenticated(true);
+
+        // Salva SEMPRE o tipo de usuário e o id do responsável/professor no localStorage
+        if (userType === "teacher") {
+          localStorage.setItem("userType", "teacher");
+          localStorage.setItem("professorId", mockUser.id);
+          console.log(
+            "[MOCK LOGIN] Salvou userType=teacher e professorId=" + mockUser.id
+          );
+        } else if (userType === "parent") {
+          localStorage.setItem("userType", "parent");
+          localStorage.setItem("responsavelId", mockUser.id);
+          console.log(
+            "[MOCK LOGIN] Salvou userType=parent e responsavelId=" + mockUser.id
+          );
+        }
+
+        // Debug: mostre o que está salvo
+        console.log("[DEBUG] userType:", localStorage.getItem("userType"));
+        console.log(
+          "[DEBUG] responsavelId:",
+          localStorage.getItem("responsavelId")
+        );
+        console.log(
+          "[DEBUG] professorId:",
+          localStorage.getItem("professorId")
+        );
 
         // Navigate based on user type and whether they have children
         if (userType === "teacher") {

@@ -11,9 +11,9 @@ import TeacherDashboardPage from "./pages/TeacherDashboardPage";
 import ChildRegistrationPage from "./pages/ChildRegistrationPage";
 import SchedulePage from "./pages/SchedulePage";
 import HistoryPage from "./pages/HistoryPage";
-import ChildrenListPage from "./pages/ChildrenListPage";
 import RegisterResponsiblePage from "./pages/RegisterResponsiblePage";
 import RegisterTeacherPage from "./pages/RegisterTeacherPage";
+import ChildrenDashboardPage from "./pages/ChildrenDashboardPage";
 
 function App() {
   return (
@@ -51,14 +51,6 @@ function App() {
 
         {/* Protected routes for parents */}
         <Route
-          path="/register-child"
-          element={
-            <MainLayout userType="parent">
-              <ChildRegistrationPage />
-            </MainLayout>
-          }
-        />
-        <Route
           path="/schedule"
           element={
             <MainLayout userType="parent">
@@ -75,10 +67,10 @@ function App() {
           }
         />
         <Route
-          path="/children-list"
+          path="/children"
           element={
             <MainLayout userType="parent">
-              <ChildrenListPage />
+              <ChildrenDashboardPage />
             </MainLayout>
           }
         />

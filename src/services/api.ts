@@ -46,9 +46,29 @@ export const apiService = {
     condition: string;
     classType: string;
     parent: string;
-  }) => api.post('/children', data),
+  }) => api.post('/api/children', data),
+
+  // Listar filhos do responsável
+  getChildrenByResponsible: (responsavelId: string) => api.get(`/api/children?responsavelId=${responsavelId}`),
+
+  
+  scheduleClass: (data: {
+    date: string;
+    time: string;
+    studentId: string;
+    
+  }) => api.post('/api/classes', data),
+
+ 
+  getClassHistory: (alunoId: string) => api.get(`/api/classes/history?alunoId=${alunoId}`),
 
   getChildren: () => api.get('/children'),
+
+  
+  getCalendar: () => api.get('/calendar'),
+  getTeachers: () => api.get('/professors'),
+  getResponsibles: () => api.get('/guardians'),
+  getRegisters: () => api.get('/registers'),
 };
 
 export default api; 
