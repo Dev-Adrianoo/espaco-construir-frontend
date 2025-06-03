@@ -27,7 +27,7 @@ export const apiService = {
     phone: string;
     email: string;
     password: string;
-  }) => api.post('/api/register/guardians', data),
+  }) => api.post('/api/guardians/register', data),
   
   registerTeacher: (data: {
     name: string;
@@ -35,7 +35,7 @@ export const apiService = {
     password: string;
     phone: string;
     cnpj: string;
-  }) => api.post('/api/professors', data),
+  }) => api.post('/api/professors/register', data),
 
   
   registerChild: (data: {
@@ -46,29 +46,47 @@ export const apiService = {
     condition: string;
     classType: string;
     parent: string;
-  }) => api.post('/api/children', data),
+  }) => api.post('/api/children/register', data),
+
+  
 
   // Listar filhos do responsável
-  getChildrenByResponsible: (responsavelId: string) => api.get(`/api/children?responsavelId=${responsavelId}`),
+  getChildrenByResponsible: (responsavelId: string) => 
+    api.get(`/api/guardians/children?responsavelId=${responsavelId}`),
 
   
   scheduleClass: (data: {
     date: string;
     time: string;
     studentId: string;
-    
-  }) => api.post('/api/classes', data),
+    teacherId: string;
+    duration: number;
+    subject: string;
+    notes?: string;
+  }) => api.post('/api/classes/schedule', data),
 
  
-  getClassHistory: (alunoId: string) => api.get(`/api/classes/history?alunoId=${alunoId}`),
+  getClassHistory: (alunoId: string) => 
+    api.get(`/api/guardians/history?alunoId=${alunoId}`),
 
-  getChildren: () => api.get('/children'),
+  getChildren: () => api.get('/api/children'),
 
   
-  getCalendar: () => api.get('/calendar'),
-  getTeachers: () => api.get('/professors'),
-  getResponsibles: () => api.get('/guardians'),
-  getRegisters: () => api.get('/registers'),
+  getCalendar: () => api.get('/api/calendar'),
+  getTeachers: () => api.get('/api/professors'),
+  getResponsibles: () => api.get('/api/guardians'),
+  getRegisters: () => api.get('/api/registers'),
+
+  getTeacher: (id: string) => api.get(`/api/professors/${id}`),
+  
+  updateTeacher: (id: string, data: {
+    name: string;
+    email: string;
+    phone: string;
+    cnpj: string;
+  }) => api.put(`/api/professors/${id}`, data),
+
+  deleteTeacher: (id: string) => api.delete(`/api/professors/${id}`),
 };
 
 export default api; 
