@@ -102,11 +102,11 @@ const SchedulePage: React.FC = () => {
       },
     }));
 
-    // Close modal
+    
     setShowBookingModal(false);
     setSelectedSlot(null);
 
-    // In a real app, this would send a WhatsApp confirmation
+    // Aqui é onde vai ser agendado a aula via whatsapp, ainda decidindo como vai ser a função
     alert(
       `Aula agendada com sucesso para ${selectedChildName} em ${format(
         new Date(date),
@@ -130,7 +130,7 @@ const SchedulePage: React.FC = () => {
       },
     }));
 
-    // In a real app, this would send a WhatsApp notification
+    // na aula depois de cancelar, vai ser enviado uma notificação via whatsapp
     alert(`Aula cancelada. Uma notificação será enviada via WhatsApp.`);
   };
 
