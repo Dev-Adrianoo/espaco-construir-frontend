@@ -49,6 +49,14 @@
 ```
 espaco-construir-frontend/
 ├── src/                    # Código fonte
+│   ├── components/         # Componentes reutilizáveis
+│   ├── layouts/           # Layouts da aplicação
+│   ├── pages/             # Páginas da aplicação
+│   ├── services/          # Serviços e integrações
+│   ├── App.tsx           # Componente principal
+│   ├── index.css         # Estilos globais
+│   ├── main.tsx          # Ponto de entrada da aplicação
+│   └── vite-env.d.ts     # Tipos do ambiente Vite
 ├── public/                 # Arquivos estáticos
 ├── node_modules/          # Dependências
 ├── .git/                  # Configuração do Git
