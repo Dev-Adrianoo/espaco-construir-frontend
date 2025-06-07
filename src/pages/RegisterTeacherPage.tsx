@@ -15,6 +15,8 @@ const RegisterTeacherPage: React.FC = () => {
     CPNJ: "",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [passwordError, setPasswordError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -37,9 +39,22 @@ const RegisterTeacherPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  function isPasswordValid(password: string) {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password);
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "password") {
+      if (!isPasswordValid(value)) {
+        setPasswordError(
+          "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número."
+        );
+      } else {
+        setPasswordError("");
+      }
+    }
   };
 
   // ADICIONAR TRY CATCH
@@ -49,6 +64,7 @@ const RegisterTeacherPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    setIsLoading(true);
     try {
       const response = await apiService.registerTeacher({
         name: formData.name,
@@ -63,6 +79,8 @@ const RegisterTeacherPage: React.FC = () => {
       setErrors({});
     } catch (error) {
       console.error("Error registering teacher:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,6 +140,9 @@ const RegisterTeacherPage: React.FC = () => {
             type="password"
             error={errors.password}
           />
+          {passwordError && (
+            <div className="text-red-600 text-sm mt-1">{passwordError}</div>
+          )}
           <Input
             label="CPNJ"
             id="CPNJ"
@@ -143,7 +164,9 @@ const RegisterTeacherPage: React.FC = () => {
             error={errors.Phone}
           />
           <div className="flex justify-end">
-            <Button type="submit">Cadastrar</Button>
+            <Button type="submit" disabled={isLoading || !!passwordError}>
+              {isLoading ? "Cadastrando..." : "Cadastrar"}
+            </Button>
           </div>
         </form>
       </Modal>

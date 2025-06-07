@@ -10,22 +10,6 @@ import { AxiosError } from "axios";
 
 type UserType = "teacher" | "parent" | null;
 
-// Mock user data - in a real app, this would come from an API
-const MOCK_USERS = {
-  teacher: {
-    email: "teacher@example.com",
-    password: "password123",
-    hasChildren: false,
-    id: "teacher-mock-id",
-  },
-  parent: {
-    email: "parent@example.com",
-    password: "password123",
-    hasChildren: true,
-    id: "parent-mock-id",
-  },
-};
-
 export default function AuthFlow() {
   const navigate = useNavigate();
   const [userType, setUserType] = useState<UserType>(null);
@@ -75,59 +59,31 @@ export default function AuthFlow() {
     }
 
     try {
-      // Simulate authentication
-      const mockUser = MOCK_USERS[userType as keyof typeof MOCK_USERS];
+      const response = await apiService.login({ email, password });
 
-      if (
-        mockUser &&
-        email === mockUser.email &&
-        password === mockUser.password
-      ) {
-        setIsAuthenticated(true);
+      // Salva o token no localStorage
+      localStorage.setItem("token", response.data.token);
 
-        // Salva SEMPRE o tipo de usuário e o id do responsável/professor no localStorage
-        if (userType === "teacher") {
-          localStorage.setItem("userType", "teacher");
-          localStorage.setItem("professorId", mockUser.id);
-          console.log(
-            "[MOCK LOGIN] Salvou userType=teacher e professorId=" + mockUser.id
-          );
-        } else if (userType === "parent") {
-          localStorage.setItem("userType", "parent");
-          localStorage.setItem("responsavelId", mockUser.id);
-          console.log(
-            "[MOCK LOGIN] Salvou userType=parent e responsavelId=" + mockUser.id
-          );
-        }
+      // Salva o tipo de usuário e ID no localStorage
+      if (userType === "teacher") {
+        localStorage.setItem("userType", "teacher");
+        localStorage.setItem("professorId", response.data.id);
+      } else if (userType === "parent") {
+        localStorage.setItem("userType", "parent");
+        localStorage.setItem("responsavelId", response.data.id);
+      }
 
-        // Debug: mostre o que está salvo
-        console.log("[DEBUG] userType:", localStorage.getItem("userType"));
-        console.log(
-          "[DEBUG] responsavelId:",
-          localStorage.getItem("responsavelId")
-        );
-        console.log(
-          "[DEBUG] professorId:",
-          localStorage.getItem("professorId")
-        );
+      setIsAuthenticated(true);
 
-        // Navigate based on user type and whether they have children
-        if (userType === "teacher") {
-          navigate("/teacher-dashboard");
-        } else if (userType === "parent") {
-          // If parent has no children, direct to registration
-          if (!mockUser.hasChildren) {
-            navigate("/register-child");
-          } else {
-            navigate("/schedule");
-          }
-        }
-      } else {
-        setError("Credenciais inválidas. Por favor, tente novamente.");
+      // Navigate based on user type
+      if (userType === "teacher") {
+        navigate("/teacher-dashboard");
+      } else if (userType === "parent") {
+        navigate("/schedule");
       }
     } catch (error) {
       console.error("Authentication failed:", error);
-      setError("Falha na autenticação. Por favor, tente novamente.");
+      setError("Email ou senha inválidos. Por favor, tente novamente.");
     }
   };
 

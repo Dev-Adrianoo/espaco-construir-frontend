@@ -5,6 +5,8 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AuthFlow from "./pages/auth-flow-react";
 import MainLayout from "./layouts/MainLayout";
 import TeacherDashboardPage from "./pages/TeacherDashboardPage";
@@ -18,84 +20,102 @@ import ChildrenDashboardPage from "./pages/ChildrenDashboardPage";
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Main auth flow route */}
-        <Route path="/" element={<AuthFlow />} />
-        <Route path="/login" element={<Navigate to="/" replace />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<AuthFlow />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
 
-        {/* Protected routes for teachers */}
-        <Route
-          path="/teacher-dashboard"
-          element={
-            <MainLayout userType="teacher">
-              <TeacherDashboardPage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/students"
-          element={
-            <MainLayout userType="teacher">
-              <ChildRegistrationPage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/manage-schedule"
-          element={
-            <MainLayout userType="teacher">
-              <SchedulePage />
-            </MainLayout>
-          }
-        />
+          {/* Protected routes for teachers */}
+          <Route
+            path="/teacher-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <MainLayout userType="teacher">
+                  <TeacherDashboardPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/students"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <MainLayout userType="teacher">
+                  <ChildRegistrationPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-schedule"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <MainLayout userType="teacher">
+                  <SchedulePage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected routes for parents */}
-        <Route
-          path="/schedule"
-          element={
-            <MainLayout userType="parent">
-              <SchedulePage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/history"
-          element={
-            <MainLayout userType="parent">
-              <HistoryPage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/children"
-          element={
-            <MainLayout userType="parent">
-              <ChildrenDashboardPage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/register-responsible"
-          element={
-            <MainLayout userType="parent">
-              <RegisterResponsiblePage />
-            </MainLayout>
-          }
-        />
+          {/* Protected routes for parents */}
+          <Route
+            path="/schedule"
+            element={
+              <ProtectedRoute allowedRoles={["parent"]}>
+                <MainLayout userType="parent">
+                  <SchedulePage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute allowedRoles={["parent"]}>
+                <MainLayout userType="parent">
+                  <HistoryPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/children"
+            element={
+              <ProtectedRoute allowedRoles={["parent"]}>
+                <MainLayout userType="parent">
+                  <ChildrenDashboardPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/register-responsible"
+            element={
+              <ProtectedRoute allowedRoles={["parent"]}>
+                <MainLayout userType="parent">
+                  <RegisterResponsiblePage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected routes for teachers */}
-        <Route
-          path="/register-teacher"
-          element={
-            <MainLayout userType="teacher">
-              <RegisterTeacherPage />
-            </MainLayout>
-          }
-        />
+          {/* Protected routes for teachers */}
+          <Route
+            path="/register-teacher"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <MainLayout userType="teacher">
+                  <RegisterTeacherPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Fallback route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
     </Router>
   );
 }

@@ -3,9 +3,6 @@ import Input from "../components/Input";
 import Button from "../components/Button";
 import { apiService } from "../services/api";
 
-// 1. Pega o ID do responsável do localStorage
-const RESPONSAVEL_ID = localStorage.getItem("responsavelId") || "";
-
 // 4. Define o tipo para filho
 interface Child {
   id: string;
@@ -14,7 +11,6 @@ interface Child {
   grade: string;
   difficulties?: string;
   condition?: string;
-  classType: string;
   parent: string;
 }
 
@@ -25,23 +21,39 @@ const RegisterAndListChildrenPage: React.FC = () => {
     grade: "",
     difficulties: "",
     condition: "",
-    classType: "presencial",
-    parent: RESPONSAVEL_ID,
+    parent: "",
   });
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guardianId, setGuardianId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (RESPONSAVEL_ID) {
-      fetchChildren();
-    }
+    const fetchGuardianId = async () => {
+      try {
+        const response = await apiService.getCurrentGuardian();
+        setGuardianId(response.data.id);
+        setFormData((prev) => ({ ...prev, parent: response.data.id }));
+      } catch (error) {
+        setError("Erro ao carregar dados do responsável");
+      }
+    };
+
+    fetchGuardianId();
   }, []);
 
+  useEffect(() => {
+    if (guardianId) {
+      fetchChildren();
+    }
+  }, [guardianId]);
+
   const fetchChildren = async () => {
+    if (!guardianId) return;
+
     setError(null);
     try {
-      const res = await apiService.getChildrenByResponsible(RESPONSAVEL_ID);
+      const res = await apiService.getChildrenByResponsible(Number(guardianId));
       setChildren(res.data);
     } catch {
       setError(
@@ -62,28 +74,42 @@ const RegisterAndListChildrenPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardianId) {
+      setError("Responsável não identificado");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      await apiService.registerChild({ ...formData, parent: RESPONSAVEL_ID });
+      await apiService.registerStudent({
+        name: formData.name,
+        email: "", // ajuste conforme necessidade
+        password: "", // ajuste conforme necessidade
+        phone: "", // ajuste conforme necessidade
+        guardianId: Number(guardianId),
+        age: Number(formData.age),
+        grade: formData.grade,
+        condition: formData.condition,
+        difficulties: formData.difficulties,
+      });
       setFormData({
         name: "",
         age: "",
         grade: "",
         difficulties: "",
         condition: "",
-        classType: "presencial",
-        parent: RESPONSAVEL_ID,
+        parent: guardianId,
       });
       fetchChildren();
     } catch {
-      setError("Erro ao cadastrar filho. Tente novamente.");
+      setError("Erro ao cadastrar aluno. Tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!RESPONSAVEL_ID) {
+  if (!guardianId) {
     return (
       <div className="max-w-2xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
         <h2 className="text-2xl font-bold mb-2">Faça login como responsável</h2>
@@ -162,33 +188,6 @@ const RegisterAndListChildrenPage: React.FC = () => {
             value={formData.condition}
             onChange={handleChange}
           />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo de Aula
-            </label>
-            <div className="flex gap-4">
-              <label>
-                <input
-                  type="radio"
-                  name="classType"
-                  value="online"
-                  checked={formData.classType === "online"}
-                  onChange={handleChange}
-                />{" "}
-                Online
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="classType"
-                  value="presencial"
-                  checked={formData.classType === "presencial"}
-                  onChange={handleChange}
-                />{" "}
-                Presencial
-              </label>
-            </div>
-          </div>
           <Button type="submit" disabled={loading}>
             {loading ? "Cadastrando..." : "Cadastrar"}
           </Button>
@@ -210,9 +209,6 @@ const RegisterAndListChildrenPage: React.FC = () => {
                 <span>
                   <strong>{child.name}</strong> — {child.age} anos,{" "}
                   {child.grade}
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                  {child.classType === "online" ? "Online" : "Presencial"}
                 </span>
               </li>
             ))}

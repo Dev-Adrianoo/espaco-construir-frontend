@@ -7,6 +7,8 @@ import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import SuccessModal from "../components/SuccessModal";
+import ErrorModal from "../components/ErrorModal";
 
 const RegisterResponsiblePage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,10 +22,26 @@ const RegisterResponsiblePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+
+  function isPasswordValid(password: string) {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password);
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "password") {
+      if (!isPasswordValid(value)) {
+        setPasswordError(
+          "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número."
+        );
+      } else {
+        setPasswordError("");
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,7 +60,11 @@ const RegisterResponsiblePage: React.FC = () => {
       setSuccess(true);
       setFormData({ name: "", phone: "", email: "", password: "" });
       setIsModalOpen(false);
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
     } catch (err) {
+      setShowErrorModal(true);
+      setTimeout(() => setShowErrorModal(false), 2000);
       const error = err as AxiosError<{ message: string }>;
       console.error("Registration error:", error);
 
@@ -89,13 +111,6 @@ const RegisterResponsiblePage: React.FC = () => {
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">
-              Cadastro realizado com sucesso!
-            </p>
-          </div>
-        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Nome do Responsável"
@@ -136,15 +151,28 @@ const RegisterResponsiblePage: React.FC = () => {
             required
             type="password"
           />
+          {passwordError && (
+            <div className="text-red-600 text-sm mt-1">{passwordError}</div>
+          )}
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !!passwordError}>
               {isLoading ? "Cadastrando..." : "Cadastrar"}
             </Button>
           </div>
         </form>
       </Modal>
       <ToastContainer position="top-right" autoClose={3000} />
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message="Cadastro realizado com sucesso!"
+      />
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        message={error || "Ocorreu um erro durante o cadastro."}
+      />
     </div>
   );
 };
