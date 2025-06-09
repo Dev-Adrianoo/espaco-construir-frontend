@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiService } from "../services/api";
+import { AxiosError } from "axios";
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: "teacher" | "parent";
+  role: "PROFESSORA" | "RESPONSAVEL";
 }
 
 interface AuthContextType {
@@ -33,29 +34,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem("token");
-      const storedUser = localStorage.getItem("user");
+      const storedUserType = localStorage.getItem("userType");
 
-      if (storedToken && storedUser) {
+      if (storedToken && storedUserType) {
         try {
-          // Verify token validity with backend
-          const response = await apiService.verifyToken(storedToken);
-          if (response.data.valid) {
+          let fetchedUser: User | null = null;
+          if (storedUserType === "PROFESSORA") {
+            const teacherResponse = await apiService.getCurrentTeacher();
+            fetchedUser = { ...teacherResponse.data, role: "PROFESSORA" };
+          } else if (storedUserType === "RESPONSAVEL") {
+            const guardianResponse = await apiService.getCurrentGuardian();
+            fetchedUser = { ...guardianResponse.data, role: "RESPONSAVEL" };
+          }
+
+          if (fetchedUser) {
             setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            setUser(fetchedUser);
+            localStorage.setItem("user", JSON.stringify(fetchedUser));
           } else {
-            // Token is invalid, clear storage
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            setToken(null);
-            setUser(null);
+            console.error("Could not fetch current user data, forcing logout.");
+            logout();
           }
         } catch (error) {
-          // Token verification failed, clear storage
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setToken(null);
-          setUser(null);
+          console.error("Error fetching current user data:", error);
+          logout();
         }
+      } else {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("responsavelId");
+        localStorage.removeItem("professorId");
       }
       setLoading(false);
     };
@@ -66,21 +75,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string) => {
     try {
       const response = await apiService.login({ email, password });
-      const { token, user } = response.data;
+
+      if (
+        !response.data ||
+        !response.data.token ||
+        !response.data.id ||
+        !response.data.name ||
+        !response.data.email ||
+        !response.data.role
+      ) {
+        console.error(
+          "Login response data is incomplete or invalid:",
+          response.data
+        );
+        throw new Error("Invalid credentials or unexpected server response.");
+      }
+
+      const { token, id, name, email: userEmail, role } = response.data;
+
+      if (!["PROFESSORA", "RESPONSAVEL"].includes(role)) {
+        console.error("Attempted login with unsupported role:", role);
+        throw new Error("Role not supported for login.");
+      }
+
+      const loggedInUser: User = {
+        id,
+        name,
+        email: userEmail,
+        role: role as "PROFESSORA" | "RESPONSAVEL",
+      };
 
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(loggedInUser));
+      localStorage.setItem("userType", loggedInUser.role);
+
+      if (loggedInUser.role === "RESPONSAVEL") {
+        localStorage.setItem("responsavelId", loggedInUser.id);
+        localStorage.removeItem("professorId");
+      } else if (loggedInUser.role === "PROFESSORA") {
+        localStorage.setItem("professorId", loggedInUser.id);
+        localStorage.removeItem("responsavelId");
+      }
 
       setToken(token);
-      setUser(user);
+      setUser(loggedInUser);
 
-      // Redirect based on role
-      if (user.role === "teacher") {
+      if (loggedInUser.role === "PROFESSORA") {
         navigate("/teacher-dashboard");
-      } else {
+      } else if (loggedInUser.role === "RESPONSAVEL") {
         navigate("/children");
+      } else {
+        console.warn("Unexpected role after login:", loggedInUser.role);
+        navigate("/");
       }
     } catch (error) {
+      console.error("Authentication failed:", error);
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
       throw new Error("Invalid credentials");
     }
   };
@@ -88,6 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("userType");
+    localStorage.removeItem("responsavelId");
+    localStorage.removeItem("professorId");
     setToken(null);
     setUser(null);
     navigate("/");

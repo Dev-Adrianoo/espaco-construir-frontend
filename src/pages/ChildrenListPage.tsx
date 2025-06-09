@@ -1,25 +1,61 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Card, { CardHeader, CardBody } from "../components/Card";
+import { apiService } from "../services/api";
+import { AxiosError } from "axios";
 
-// Mock children data for demonstration
-const MOCK_CHILDREN = [
-  {
-    id: "1",
-    name: "Lucas Silva",
-    age: 8,
-    grade: "3º ano",
-    classType: "Presencial",
-  },
-  {
-    id: "2",
-    name: "Maria Souza",
-    age: 10,
-    grade: "5º ano",
-    classType: "Online",
-  },
-];
+interface Child {
+  id: string;
+  name: string;
+  age: number;
+  grade: string;
+  classType: string;
+}
 
 const ChildrenListPage: React.FC = () => {
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchChildren = async () => {
+      const responsavelId = localStorage.getItem("responsavelId");
+      if (!responsavelId) {
+        setError(
+          "ID do responsável não encontrado. Por favor, faça login novamente."
+        );
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await apiService.getChildrenByResponsible(
+          Number(responsavelId)
+        );
+        setChildren(response.data);
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setError(
+          error.response?.data?.message ||
+            "Erro ao carregar filhos cadastrados."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChildren();
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-center text-gray-500 mt-8">Carregando filhos...</p>
+    );
+  }
+
+  if (error) {
+    return <p className="text-center text-red-500 mt-8">Erro: {error}</p>;
+  }
+
   return (
     <div className="max-w-3xl mx-auto mt-8">
       <Card>
@@ -29,11 +65,11 @@ const ChildrenListPage: React.FC = () => {
           </h2>
         </CardHeader>
         <CardBody>
-          {MOCK_CHILDREN.length === 0 ? (
+          {children.length === 0 ? (
             <p className="text-gray-500">Nenhum filho cadastrado.</p>
           ) : (
             <ul className="divide-y divide-blue-100">
-              {MOCK_CHILDREN.map((child) => (
+              {children.map((child) => (
                 <li
                   key={child.id}
                   className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between"

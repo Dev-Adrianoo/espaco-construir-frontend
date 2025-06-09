@@ -1,25 +1,26 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate, Navigate } from "react-router-dom";
-import MainLayout from "../layouts/MainLayout";
-import { GraduationCap } from "lucide-react";
+import { Navigate } from "react-router-dom";
+import { GraduationCap, User as UserIcon } from "lucide-react";
 import Modal from "../components/Modal";
 import Input from "../components/Input";
+import Button from "../components/Button";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
-type UserType = "teacher" | "parent" | null;
+type LocalUserType = "teacher" | "parent" | null;
 
 export default function AuthFlow() {
-  const navigate = useNavigate();
-  const [userType, setUserType] = useState<UserType>(null);
+  const { login: authLogin, user, isAuthenticated, loading } = useAuth();
+  const [localUserTypeSelection, setLocalUserTypeSelection] =
+    useState<LocalUserType>(null);
   const [isFlipping, setIsFlipping] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
-  const [registrationType, setRegistrationType] = useState<UserType>(null);
+  const [registrationType, setRegistrationType] = useState<LocalUserType>(null);
   const [registrationFormData, setRegistrationFormData] = useState({
     name: "",
     email: "",
@@ -33,10 +34,10 @@ export default function AuthFlow() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleUserTypeSelect = (type: UserType) => {
+  const handleUserTypeSelect = (type: LocalUserType) => {
     setIsFlipping(true);
     setTimeout(() => {
-      setUserType(type);
+      setLocalUserTypeSelection(type);
       setIsFlipping(false);
     }, 400);
   };
@@ -44,7 +45,7 @@ export default function AuthFlow() {
   const handleBack = () => {
     setIsFlipping(true);
     setTimeout(() => {
-      setUserType(null);
+      setLocalUserTypeSelection(null);
       setIsFlipping(false);
     }, 400);
   };
@@ -59,31 +60,12 @@ export default function AuthFlow() {
     }
 
     try {
-      const response = await apiService.login({ email, password });
-
-      // Salva o token no localStorage
-      localStorage.setItem("token", response.data.token);
-
-      // Salva o tipo de usuário e ID no localStorage
-      if (userType === "teacher") {
-        localStorage.setItem("userType", "teacher");
-        localStorage.setItem("professorId", response.data.id);
-      } else if (userType === "parent") {
-        localStorage.setItem("userType", "parent");
-        localStorage.setItem("responsavelId", response.data.id);
-      }
-
-      setIsAuthenticated(true);
-
-      // Navigate based on user type
-      if (userType === "teacher") {
-        navigate("/teacher-dashboard");
-      } else if (userType === "parent") {
-        navigate("/schedule");
-      }
+      localStorage.setItem("userType", localUserTypeSelection || "");
+      await authLogin(email, password);
     } catch (error) {
       console.error("Authentication failed:", error);
       setError("Email ou senha inválidos. Por favor, tente novamente.");
+      setLocalUserTypeSelection(null); // Reset user type selection on failed login
     }
   };
 
@@ -146,20 +128,19 @@ export default function AuthFlow() {
     setRegistrationFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const openRegistrationModal = (type: UserType) => {
+  const openRegistrationModal = (type: LocalUserType) => {
     setRegistrationType(type);
     setIsRegistrationModalOpen(true);
   };
 
-  // If user is authenticated, render the MainLayout
-  if (isAuthenticated && userType) {
-    return (
-      <MainLayout userType={userType}>
-        <Navigate
-          to={userType === "teacher" ? "/teacher-dashboard" : "/schedule"}
-        />
-      </MainLayout>
-    );
+  if (isAuthenticated && user) {
+    const targetPath =
+      user.role === "teacher" ? "/teacher-dashboard" : "/children";
+    return <Navigate to={targetPath} replace />;
+  }
+
+  if (loading) {
+    return <p>Carregando autenticação...</p>;
   }
 
   return (
@@ -170,7 +151,6 @@ export default function AuthFlow() {
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
         >
-          {/* Card Container */}
           <motion.div
             className={`bg-white rounded-xl shadow-lg overflow-hidden border border-primary-100 ${
               isFlipping ? "pointer-events-none" : ""
@@ -180,11 +160,11 @@ export default function AuthFlow() {
               transition: { duration: 0.4 },
             }}
           >
-            {userType === null ? (
+            {localUserTypeSelection === null ? (
               <UserTypeSelection onSelect={handleUserTypeSelect} />
             ) : (
               <LoginForm
-                userType={userType}
+                userType={localUserTypeSelection}
                 onBack={handleBack}
                 email={email}
                 setEmail={setEmail}
@@ -248,16 +228,6 @@ export default function AuthFlow() {
             required
             type="password"
           />
-          <Input
-            label="Telefone"
-            id="phone"
-            name="phone"
-            placeholder="Digite o telefone"
-            value={registrationFormData.phone}
-            onChange={handleRegistrationChange}
-            required
-            type="tel"
-          />
           {registrationType === "teacher" && (
             <Input
               label="CNPJ"
@@ -269,31 +239,28 @@ export default function AuthFlow() {
               required
             />
           )}
-          <div className="flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => setIsRegistrationModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-            >
-              {isLoading ? "Cadastrando..." : "Cadastrar"}
-            </button>
-          </div>
+          <Input
+            label="Telefone"
+            id="phone"
+            name="phone"
+            placeholder="Digite o telefone"
+            value={registrationFormData.phone}
+            onChange={handleRegistrationChange}
+            required
+            type="tel"
+          />
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Cadastrando..." : "Cadastrar"}
+          </Button>
         </form>
       </Modal>
     </div>
   );
 }
 
-type UserTypeSelectionProps = {
-  onSelect: (type: UserType) => void;
-};
+interface UserTypeSelectionProps {
+  onSelect: (type: LocalUserType) => void;
+}
 
 function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
   return (
@@ -313,29 +280,13 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
       </p>
 
       <div className="space-y-4">
-        <motion.button
+        <button
           onClick={() => onSelect("teacher")}
           className="w-full flex items-center justify-between p-4 rounded-lg border border-blue-200 hover:border-blue-400 bg-white hover:bg-blue-50 transition-all"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
         >
           <div className="flex items-center">
             <div className="p-2 mr-4 bg-blue-100 rounded-lg">
-              <svg
-                className="h-6 w-6 text-blue-500"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
+              <GraduationCap size={24} className="text-blue-500" />
             </div>
             <div className="text-left">
               <h3 className="font-medium text-gray-900">Sou Professor(a)</h3>
@@ -356,29 +307,15 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
           >
             <path d="M9 18l6-6-6-6" />
           </svg>
-        </motion.button>
+        </button>
 
-        <motion.button
+        <button
           onClick={() => onSelect("parent")}
           className="w-full flex items-center justify-between p-4 rounded-lg border border-blue-200 hover:border-blue-400 bg-white hover:bg-blue-50 transition-all"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
         >
           <div className="flex items-center">
             <div className="p-2 mr-4 bg-blue-100 rounded-lg">
-              <svg
-                className="h-6 w-6 text-blue-500"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              <UserIcon size={24} className="text-blue-500" />
             </div>
             <div className="text-left">
               <h3 className="font-medium text-gray-900">Sou Responsável</h3>
@@ -399,14 +336,14 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
           >
             <path d="M9 18l6-6-6-6" />
           </svg>
-        </motion.button>
+        </button>
       </div>
     </div>
   );
 }
 
-type LoginFormProps = {
-  userType: UserType;
+interface LoginFormProps {
+  userType: LocalUserType;
   onBack: () => void;
   email: string;
   setEmail: (email: string) => void;
@@ -414,8 +351,8 @@ type LoginFormProps = {
   setPassword: (password: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   error?: string;
-  onRegisterClick: (type: UserType) => void;
-};
+  onRegisterClick: (type: LocalUserType) => void;
+}
 
 function LoginForm({
   userType,
@@ -428,13 +365,14 @@ function LoginForm({
   error,
   onRegisterClick,
 }: LoginFormProps) {
+  const isTeacher = userType === "teacher";
+
   return (
     <div className="p-8">
       <div className="flex items-center mb-8">
-        <motion.button
+        <button
           onClick={onBack}
           className="p-2 -ml-2 mr-3 rounded-full hover:bg-blue-100 transition-colors"
-          whileTap={{ scale: 0.95 }}
         >
           <svg
             className="h-5 w-5 text-blue-500"
@@ -446,17 +384,15 @@ function LoginForm({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M15 18l-6-6 6-6" />
+            <path d="M15 18l-6-6-6-6" />
           </svg>
-        </motion.button>
+        </button>
         <div>
           <h2 className="text-xl font-bold text-gray-800">
-            {userType === "teacher"
-              ? "Login de Professor"
-              : "Login de Responsável"}
+            {isTeacher ? "Login de Professor" : "Login de Responsável"}
           </h2>
           <p className="text-sm text-gray-600">
-            {userType === "teacher"
+            {isTeacher
               ? "Acesse sua conta de educador"
               : "Acesse sua conta de responsável"}
           </p>
@@ -530,14 +466,12 @@ function LoginForm({
         </div>
 
         <div>
-          <motion.button
+          <button
             type="submit"
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
           >
             Entrar
-          </motion.button>
+          </button>
         </div>
       </form>
 

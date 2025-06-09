@@ -16,6 +16,7 @@ type SelectProps = {
   error?: string;
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 };
 
 const Select: React.FC<SelectProps> = ({
@@ -29,6 +30,7 @@ const Select: React.FC<SelectProps> = ({
   error,
   className = '',
   placeholder,
+  disabled = false,
 }) => {
   return (
     <div className={`mb-4 ${className}`}>
@@ -49,6 +51,7 @@ const Select: React.FC<SelectProps> = ({
         value={value}
         onChange={onChange}
         required={required}
+        disabled={disabled}
       >
         {placeholder && (
           <option value="" disabled>

@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import { Calendar, Clock, X } from "lucide-react";
+import Select from "../components/Select";
+import { apiService } from "../services/api";
+import { AxiosError } from "axios";
+import Modal from "../components/Modal";
 
 // Time slots available for booking
 const TIME_SLOTS = [
@@ -16,11 +20,20 @@ const TIME_SLOTS = [
   "16:00",
 ];
 
-// Mock data for children
-const CHILDREN = [
-  { id: "child1", name: "Maria Silva" },
-  { id: "child2", name: "Pedro Santos" },
-];
+interface Child {
+  id: string;
+  name: string;
+  age: number;
+  grade: string;
+  classType: string;
+}
+
+// interface ScheduledClass {
+//   date: string;
+//   time: string;
+//   childId: string;
+//   childName: string;
+// } // Keep commented for now
 
 type ScheduleType = {
   [key: string]: {
@@ -56,26 +69,75 @@ const SchedulePage: React.FC = () => {
   }
 
   const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
-  const [selectedChild, setSelectedChild] = useState(CHILDREN[0].id);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState(true);
+  const [childrenError, setChildrenError] = useState<string | null>(null);
+  const [selectedChild, setSelectedChild] = useState("");
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: string;
     time: string;
   } | null>(null);
+  // const [loadingSchedule, setLoadingSchedule] = useState(true); // Keep commented
+  // const [scheduleError, setScheduleError] = useState<string | null>(null); // Keep commented
+
+  useEffect(() => {
+    const fetchChildren = async () => {
+      const responsavelId = localStorage.getItem("responsavelId");
+      if (!responsavelId) {
+        setChildrenError(
+          "ID do responsável não encontrado. Por favor, faça login novamente."
+        );
+        setLoadingChildren(false);
+        return;
+      }
+      try {
+        const response = await apiService.getChildrenByResponsible(
+          Number(responsavelId)
+        );
+        setChildren(response.data);
+        if (response.data.length > 0) {
+          setSelectedChild(response.data[0].id); // Select the first child by default
+        }
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setChildrenError(
+          error.response?.data?.message || "Erro ao carregar seus filhos."
+        );
+      } finally {
+        setLoadingChildren(false);
+      }
+    };
+
+    // const fetchSchedule = async () => { ... }; // Keep commented
+
+    fetchChildren();
+    // fetchSchedule(); // Keep commented
+  }, [startDate]);
 
   // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
-    // If already booked by this user, ask to cancel
-    if (schedule[date][time].booked) {
+    if (loadingChildren || !!childrenError || children.length === 0) {
+      return;
+    }
+
+    const currentSlot = schedule[date]?.[time];
+
+    // If already booked, check if it's booked by the current user's child
+    if (currentSlot && currentSlot.booked) {
+      const isBookedByMyChild = children.some(
+        (child) => child.id === currentSlot.childId
+      );
+
       if (
-        window.confirm(
-          `Cancelar a aula para ${schedule[date][time].childName}?`
-        )
+        isBookedByMyChild &&
+        window.confirm(`Cancelar a aula para ${currentSlot.childName}?`)
       ) {
         handleCancelBooking(date, time);
+      } else if (!isBookedByMyChild) {
+        alert(`Este horário já está reservado por outro aluno.`);
       }
     } else {
-      // Open booking modal
       setSelectedSlot({ date, time });
       setShowBookingModal(true);
     }
@@ -83,13 +145,16 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking confirmation
   const handleConfirmBooking = () => {
-    if (!selectedSlot) return;
+    if (!selectedSlot || !selectedChild) return;
 
     const { date, time } = selectedSlot;
     const selectedChildName =
-      CHILDREN.find((child) => child.id === selectedChild)?.name || "";
+      children.find((child) => child.id === selectedChild)?.name || "";
 
-    // Update the schedule
+    // Send booking to backend (placeholder for now)
+    // apiService.bookClass({ date, time, childId: selectedChild, childName: selectedChildName });
+
+    // Optimistically update the schedule
     setSchedule((prev) => ({
       ...prev,
       [date]: {
@@ -102,11 +167,9 @@ const SchedulePage: React.FC = () => {
       },
     }));
 
-    
     setShowBookingModal(false);
     setSelectedSlot(null);
 
-    // Aqui é onde vai ser agendado a aula via whatsapp, ainda decidindo como vai ser a função
     alert(
       `Aula agendada com sucesso para ${selectedChildName} em ${format(
         new Date(date),
@@ -117,7 +180,10 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking cancellation
   const handleCancelBooking = (date: string, time: string) => {
-    // Update the schedule
+    // Send cancellation to backend (placeholder for now)
+    // apiService.cancelClass({ date, time });
+
+    // Optimistically update the schedule
     setSchedule((prev) => ({
       ...prev,
       [date]: {
@@ -130,9 +196,26 @@ const SchedulePage: React.FC = () => {
       },
     }));
 
-    // na aula depois de cancelar, vai ser enviado uma notificação via whatsapp
     alert(`Aula cancelada. Uma notificação será enviada via WhatsApp.`);
   };
+
+  if (loadingChildren) {
+    return (
+      <p className="text-center text-gray-500 mt-8">Carregando alunos...</p>
+    );
+  }
+
+  // if (loadingSchedule) { ... } // Keep commented
+
+  // if (scheduleError) { ... } // Keep commented
+
+  if (childrenError) {
+    return (
+      <p className="text-center text-red-500 mt-8">
+        Erro ao carregar alunos: {childrenError}
+      </p>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -194,7 +277,7 @@ const SchedulePage: React.FC = () => {
                         key={`${date}-${time}`}
                         className={
                           `px-6 py-4 whitespace-nowrap text-center text-sm ` +
-                          (schedule[date][time].booked
+                          (schedule[date]?.[time]?.booked
                             ? "bg-indigo-50"
                             : "cursor-pointer hover:bg-indigo-100") +
                           " transition-colors duration-150" +
@@ -202,7 +285,7 @@ const SchedulePage: React.FC = () => {
                         }
                         onClick={() => handleSlotClick(date, time)}
                       >
-                        {schedule[date][time].booked ? (
+                        {schedule[date]?.[time]?.booked ? (
                           <div className="flex flex-col items-center">
                             <span className="font-medium text-indigo-600">
                               {schedule[date][time].childName}
@@ -234,112 +317,71 @@ const SchedulePage: React.FC = () => {
 
       {/* Booking Modal */}
       {showBookingModal && selectedSlot && (
-        <div
-          className="fixed inset-0 z-10 overflow-y-auto"
-          aria-labelledby="modal-title"
-          role="dialog"
-          aria-modal="true"
+        <Modal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          title="Agendar Aula"
         >
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              aria-hidden="true"
-            ></div>
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
+          <div className="text-center">
+            <p className="text-sm text-gray-500 mb-4">
+              Você está agendando uma aula para{" "}
+              <span className="font-semibold">
+                {format(new Date(selectedSlot.date), "dd/MM/yyyy")}
+              </span>{" "}
+              às <span className="font-semibold">{selectedSlot.time}</span>.
+            </p>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="absolute top-0 right-0 pt-4 pr-4">
-                <button
-                  type="button"
-                  className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
-                  onClick={() => setShowBookingModal(false)}
-                >
-                  <span className="sr-only">Fechar</span>
-                  <X size={20} aria-hidden="true" />
-                </button>
-              </div>
+            <div className="mb-4">
+              <Select
+                label="Selecione o Aluno"
+                id="select-child"
+                name="select-child"
+                options={children.map((child) => ({
+                  value: child.id,
+                  label: child.name,
+                }))}
+                value={selectedChild}
+                onChange={(e) => setSelectedChild(e.target.value)}
+                placeholder="Selecione um aluno"
+                required
+                disabled={
+                  loadingChildren || !!childrenError || children.length === 0
+                }
+              />
+              {loadingChildren && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Carregando alunos...
+                </p>
+              )}
+              {childrenError && (
+                <p className="text-sm text-red-500 mt-2">
+                  Erro ao carregar alunos: {childrenError}
+                </p>
+              )}
+              {!loadingChildren && !childrenError && children.length === 0 && (
+                <p className="text-sm text-red-500 mt-2">
+                  Nenhum aluno cadastrado para este responsável.
+                </p>
+              )}
+            </div>
 
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Calendar
-                      className="h-6 w-6 text-indigo-600"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3
-                      className="text-lg leading-6 font-medium text-gray-900"
-                      id="modal-title"
-                    >
-                      Agendar Aula
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Você está agendando uma aula para{" "}
-                        <span className="font-semibold">
-                          {format(new Date(selectedSlot.date), "dd/MM/yyyy")}
-                        </span>{" "}
-                        às{" "}
-                        <span className="font-semibold">
-                          {selectedSlot.time}
-                        </span>
-                        .
-                      </p>
-
-                      <div className="mt-4">
-                        <label
-                          htmlFor="child-select"
-                          className="block text-sm font-medium text-gray-700"
-                        >
-                          Selecione o Aluno
-                        </label>
-                        <select
-                          id="child-select"
-                          value={selectedChild}
-                          onChange={(e) => setSelectedChild(e.target.value)}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                          {CHILDREN.map((child) => (
-                            <option key={child.id} value={child.id}>
-                              {child.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="mt-4 flex items-center">
-                        <Clock className="h-5 w-5 text-gray-400 mr-2" />
-                        <p className="text-sm text-gray-600">Duração: 1 hora</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <Button
-                  onClick={handleConfirmBooking}
-                  className="w-full sm:w-auto sm:ml-3"
-                >
-                  Confirmar via WhatsApp
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowBookingModal(false)}
-                  className="mt-3 w-full sm:mt-0 sm:w-auto"
-                >
-                  Cancelar
-                </Button>
-              </div>
+            <div className="mt-4 flex items-center justify-center">
+              <Clock className="h-5 w-5 text-gray-400 mr-2" />
+              <p className="text-sm text-gray-600">Duração: 1 hora</p>
             </div>
           </div>
-        </div>
+
+          <div className="mt-5 sm:mt-6">
+            <Button
+              type="button"
+              onClick={handleConfirmBooking}
+              disabled={!selectedChild || loadingChildren}
+              className="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
+            >
+              Confirmar via WhatsApp
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -112,6 +112,7 @@ export const apiService = {
 
   // Current user
   getCurrentGuardian: () => api.get('/api/guardians/me'),
+  getCurrentTeacher: () => api.get('/api/professors/me'),
 };
 
 export default api; 
