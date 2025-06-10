@@ -30,8 +30,8 @@ function App() {
           <Route
             path="/teacher-dashboard"
             element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <MainLayout userType="teacher">
+              <ProtectedRoute allowedRoles={["PROFESSORA"]}>
+                <MainLayout userType="PROFESSORA">
                   <TeacherDashboardPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -40,8 +40,8 @@ function App() {
           <Route
             path="/students"
             element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <MainLayout userType="teacher">
+              <ProtectedRoute allowedRoles={["PROFESSORA"]}>
+                <MainLayout userType="PROFESSORA">
                   <ChildRegistrationPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -50,8 +50,8 @@ function App() {
           <Route
             path="/manage-schedule"
             element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <MainLayout userType="teacher">
+              <ProtectedRoute allowedRoles={["PROFESSORA"]}>
+                <MainLayout userType="PROFESSORA">
                   <SchedulePage />
                 </MainLayout>
               </ProtectedRoute>
@@ -62,8 +62,8 @@ function App() {
           <Route
             path="/schedule"
             element={
-              <ProtectedRoute allowedRoles={["parent"]}>
-                <MainLayout userType="parent">
+              <ProtectedRoute allowedRoles={["RESPONSAVEL"]}>
+                <MainLayout userType="RESPONSAVEL">
                   <SchedulePage />
                 </MainLayout>
               </ProtectedRoute>
@@ -72,8 +72,8 @@ function App() {
           <Route
             path="/history"
             element={
-              <ProtectedRoute allowedRoles={["parent"]}>
-                <MainLayout userType="parent">
+              <ProtectedRoute allowedRoles={["RESPONSAVEL"]}>
+                <MainLayout userType="RESPONSAVEL">
                   <HistoryPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -82,8 +82,8 @@ function App() {
           <Route
             path="/children"
             element={
-              <ProtectedRoute allowedRoles={["parent"]}>
-                <MainLayout userType="parent">
+              <ProtectedRoute allowedRoles={["RESPONSAVEL"]}>
+                <MainLayout userType="RESPONSAVEL">
                   <ChildrenDashboardPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -92,8 +92,8 @@ function App() {
           <Route
             path="/register-responsible"
             element={
-              <ProtectedRoute allowedRoles={["parent"]}>
-                <MainLayout userType="parent">
+              <ProtectedRoute allowedRoles={["RESPONSAVEL"]}>
+                <MainLayout userType="RESPONSAVEL">
                   <RegisterResponsiblePage />
                 </MainLayout>
               </ProtectedRoute>
@@ -104,8 +104,8 @@ function App() {
           <Route
             path="/register-teacher"
             element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <MainLayout userType="teacher">
+              <ProtectedRoute allowedRoles={["PROFESSORA"]}>
+                <MainLayout userType="PROFESSORA">
                   <RegisterTeacherPage />
                 </MainLayout>
               </ProtectedRoute>

@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ("teacher" | "parent")[];
+  allowedRoles?: ("PROFESSORA" | "RESPONSAVEL")[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -23,15 +23,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    // Redirect to login page but save the attempted url
+    
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    // Redirect to appropriate dashboard based on role
+    
     return (
       <Navigate
-        to={user.role === "teacher" ? "/teacher-dashboard" : "/children"}
+        to={user.role === "PROFESSORA" ? "/teacher-dashboard" : "/children"}
         replace
       />
     );

@@ -9,7 +9,35 @@ import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 
-type LocalUserType = "teacher" | "parent" | null;
+type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
+
+const formatPhone = (value: string) => {
+  const numbers = value.replace(/\D/g, "");
+
+  const limitedNumbers = numbers.slice(0, 11);
+
+  if (limitedNumbers.length <= 10) {
+    return limitedNumbers.replace(
+      /(\d{2})(\d{0,4})(\d{0,4})/,
+      (_, ddd, part1, part2) => {
+        if (part2) return `(${ddd}) ${part1}-${part2}`;
+        if (part1) return `(${ddd}) ${part1}`;
+        if (ddd) return `(${ddd}`;
+        return "";
+      }
+    );
+  } else {
+    return limitedNumbers.replace(
+      /(\d{2})(\d{0,5})(\d{0,4})/,
+      (_, ddd, part1, part2) => {
+        if (part2) return `(${ddd}) ${part1}-${part2}`;
+        if (part1) return `(${ddd}) ${part1}`;
+        if (ddd) return `(${ddd}`;
+        return "";
+      }
+    );
+  }
+};
 
 export default function AuthFlow() {
   const { login: authLogin, user, isAuthenticated, loading } = useAuth();
@@ -75,13 +103,24 @@ export default function AuthFlow() {
     setRegistrationSuccess(false);
     setIsLoading(true);
 
+    // Validar formato do telefone
+    const phoneRegex = /^\d{10,11}$/;
+    if (
+      registrationFormData.phone &&
+      !phoneRegex.test(registrationFormData.phone.replace(/\D/g, ""))
+    ) {
+      setRegistrationError("O telefone deve ter 10 ou 11 dígitos");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (registrationType === "teacher") {
+      if (registrationType === "PROFESSORA") {
         await apiService.registerTeacher({
           name: registrationFormData.name,
           email: registrationFormData.email,
           password: registrationFormData.password,
-          phone: registrationFormData.phone,
+          phone: registrationFormData.phone.replace(/\D/g, ""), // Remove não-dígitos
           cnpj: registrationFormData.cnpj,
         });
       } else {
@@ -89,7 +128,7 @@ export default function AuthFlow() {
           name: registrationFormData.name,
           email: registrationFormData.email,
           password: registrationFormData.password,
-          phone: registrationFormData.phone,
+          phone: registrationFormData.phone.replace(/\D/g, ""), // Remove não-dígitos
         });
       }
 
@@ -125,7 +164,16 @@ export default function AuthFlow() {
 
   const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setRegistrationFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Aplica a máscara se for o campo de telefone
+    if (name === "phone") {
+      setRegistrationFormData((prev) => ({
+        ...prev,
+        [name]: formatPhone(value),
+      }));
+    } else {
+      setRegistrationFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const openRegistrationModal = (type: LocalUserType) => {
@@ -135,7 +183,7 @@ export default function AuthFlow() {
 
   if (isAuthenticated && user) {
     const targetPath =
-      user.role === "teacher" ? "/teacher-dashboard" : "/children";
+      user.role === "PROFESSORA" ? "/teacher-dashboard" : "/children";
     return <Navigate to={targetPath} replace />;
   }
 
@@ -183,7 +231,7 @@ export default function AuthFlow() {
         isOpen={isRegistrationModalOpen}
         onClose={() => setIsRegistrationModalOpen(false)}
         title={`Cadastro de ${
-          registrationType === "teacher" ? "Professor(a)" : "Responsável"
+          registrationType === "PROFESSORA" ? "Professor(a)" : "Responsável"
         }`}
       >
         {registrationError && (
@@ -228,7 +276,7 @@ export default function AuthFlow() {
             required
             type="password"
           />
-          {registrationType === "teacher" && (
+          {registrationType === "PROFESSORA" && (
             <Input
               label="CNPJ"
               id="cnpj"
@@ -243,11 +291,12 @@ export default function AuthFlow() {
             label="Telefone"
             id="phone"
             name="phone"
-            placeholder="Digite o telefone"
+            placeholder="(XX) XXXXX-XXXX"
             value={registrationFormData.phone}
             onChange={handleRegistrationChange}
             required
             type="tel"
+            maxLength={15} // Comprimento máximo com a máscara
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Cadastrando..." : "Cadastrar"}
@@ -281,7 +330,7 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
 
       <div className="space-y-4">
         <button
-          onClick={() => onSelect("teacher")}
+          onClick={() => onSelect("PROFESSORA")}
           className="w-full flex items-center justify-between p-4 rounded-lg border border-blue-200 hover:border-blue-400 bg-white hover:bg-blue-50 transition-all"
         >
           <div className="flex items-center">
@@ -310,7 +359,7 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
         </button>
 
         <button
-          onClick={() => onSelect("parent")}
+          onClick={() => onSelect("RESPONSAVEL")}
           className="w-full flex items-center justify-between p-4 rounded-lg border border-blue-200 hover:border-blue-400 bg-white hover:bg-blue-50 transition-all"
         >
           <div className="flex items-center">
@@ -365,7 +414,7 @@ function LoginForm({
   error,
   onRegisterClick,
 }: LoginFormProps) {
-  const isTeacher = userType === "teacher";
+  const isTeacher = userType === "PROFESSORA";
 
   return (
     <div className="p-8">
@@ -482,20 +531,20 @@ function LoginForm({
         >
           Esqueci minha senha
         </a>
-        {userType === "teacher" && (
+        {userType === "PROFESSORA" && (
           <div className="mt-4">
             <button
-              onClick={() => onRegisterClick("teacher")}
+              onClick={() => onRegisterClick("PROFESSORA")}
               className="text-sm font-medium text-blue-500 hover:text-blue-700"
             >
               Cadastrar Professor(a)
             </button>
           </div>
         )}
-        {userType === "parent" && (
+        {userType === "RESPONSAVEL" && (
           <div className="mt-4">
             <button
-              onClick={() => onRegisterClick("parent")}
+              onClick={() => onRegisterClick("RESPONSAVEL")}
               className="text-sm font-medium text-blue-500 hover:text-blue-700"
             >
               Cadastrar Responsável

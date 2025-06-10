@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 type MainLayoutProps = {
   children: React.ReactNode;
-  userType: "teacher" | "parent" | null;
+  userType: "PROFESSORA" | "RESPONSAVEL" | null;
 };
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
@@ -30,7 +30,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
     { path: "/history", label: "Histórico" },
   ];
 
-  const links = userType === "teacher" ? teacherLinks : parentLinks;
+  const links = userType === "PROFESSORA" ? teacherLinks : parentLinks;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
