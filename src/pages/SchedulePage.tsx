@@ -3,7 +3,7 @@ import { format, addDays, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import Card, { CardHeader, CardBody } from "../components/Card";
-import { Calendar, Clock, X } from "lucide-react";
+import { Clock } from "lucide-react";
 import Select from "../components/Select";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
@@ -22,6 +22,14 @@ const TIME_SLOTS = [
 
 interface Child {
   id: string;
+  name: string;
+  age: number;
+  grade: string;
+  classType: string;
+}
+
+interface ApiChild {
+  id: number;
   name: string;
   age: number;
   grade: string;
@@ -47,7 +55,7 @@ type ScheduleType = {
 
 const SchedulePage: React.FC = () => {
   const today = new Date();
-  const startDate = startOfWeek(today, { weekStartsOn: 1 }); // Start from Monday
+  const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
   // Initialize schedule with empty slots
   const initialSchedule: ScheduleType = {};
@@ -72,7 +80,7 @@ const SchedulePage: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [childrenError, setChildrenError] = useState<string | null>(null);
-  const [selectedChild, setSelectedChild] = useState("");
+  const [selectedChild, setSelectedChild] = useState<string>("");
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: string;
@@ -95,15 +103,22 @@ const SchedulePage: React.FC = () => {
         const response = await apiService.getChildrenByResponsible(
           Number(responsavelId)
         );
-        setChildren(response.data);
-        if (response.data.length > 0) {
-          setSelectedChild(response.data[0].id); // Select the first child by default
-        }
+
+        // Garante que os IDs são strings
+        const formattedChildren = response.data.map((child: ApiChild) => ({
+          ...child,
+          id: String(child.id),
+        }));
+
+        console.log("Crianças carregadas:", formattedChildren);
+        setChildren(formattedChildren);
+        setSelectedChild(""); // Começa sem nenhum aluno selecionado
       } catch (err) {
         const error = err as AxiosError<{ message: string }>;
         setChildrenError(
           error.response?.data?.message || "Erro ao carregar seus filhos."
         );
+        console.error("Erro ao carregar alunos:", err);
       } finally {
         setLoadingChildren(false);
       }
@@ -113,7 +128,7 @@ const SchedulePage: React.FC = () => {
 
     fetchChildren();
     // fetchSchedule(); // Keep commented
-  }, [startDate]);
+  }, []);
 
   // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
@@ -145,33 +160,52 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking confirmation
   const handleConfirmBooking = () => {
-    if (!selectedSlot || !selectedChild) return;
+    if (!selectedSlot || !selectedChild) {
+      console.log("Slot ou aluno não selecionado:", {
+        selectedSlot,
+        selectedChild,
+      });
+      return;
+    }
 
     const { date, time } = selectedSlot;
-    const selectedChildName =
-      children.find((child) => child.id === selectedChild)?.name || "";
+    console.log("Procurando aluno com ID:", selectedChild);
+    console.log("Lista de alunos disponíveis:", children);
 
-    // Send booking to backend (placeholder for now)
-    // apiService.bookClass({ date, time, childId: selectedChild, childName: selectedChildName });
+    const selectedChildData = children.find(
+      (child) => child.id === selectedChild
+    );
 
-    // Optimistically update the schedule
-    setSchedule((prev) => ({
-      ...prev,
-      [date]: {
-        ...prev[date],
-        [time]: {
-          childId: selectedChild,
-          childName: selectedChildName,
-          booked: true,
+    if (!selectedChildData) {
+      console.error("Aluno não encontrado. ID:", selectedChild);
+      alert("Erro: Por favor, selecione um aluno válido.");
+      return;
+    }
+
+    console.log("Dados do aluno encontrado:", selectedChildData);
+
+    // Atualiza o agendamento
+    setSchedule((prev) => {
+      const newSchedule = {
+        ...prev,
+        [date]: {
+          ...prev[date],
+          [time]: {
+            childId: selectedChildData.id,
+            childName: selectedChildData.name,
+            booked: true,
+          },
         },
-      },
-    }));
+      };
+      console.log("Novo estado do agendamento:", newSchedule[date][time]);
+      return newSchedule;
+    });
 
     setShowBookingModal(false);
     setSelectedSlot(null);
 
     alert(
-      `Aula agendada com sucesso para ${selectedChildName} em ${format(
+      `Aula agendada com sucesso para ${selectedChildData.name} em ${format(
         new Date(date),
         "dd/MM/yyyy"
       )} às ${time}. Uma confirmação será enviada via WhatsApp.`
@@ -180,10 +214,6 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking cancellation
   const handleCancelBooking = (date: string, time: string) => {
-    // Send cancellation to backend (placeholder for now)
-    // apiService.cancelClass({ date, time });
-
-    // Optimistically update the schedule
     setSchedule((prev) => ({
       ...prev,
       [date]: {
@@ -197,6 +227,19 @@ const SchedulePage: React.FC = () => {
     }));
 
     alert(`Aula cancelada. Uma notificação será enviada via WhatsApp.`);
+  };
+
+  const handleModalClose = () => {
+    setShowBookingModal(false);
+    setSelectedSlot(null);
+  };
+
+  const handleChildChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newValue = e.target.value;
+    console.log("Mudando seleção de aluno para:", newValue);
+    const selectedChild = children.find((child) => child.id === newValue);
+    console.log("Dados do aluno selecionado:", selectedChild);
+    setSelectedChild(newValue);
   };
 
   if (loadingChildren) {
@@ -272,41 +315,43 @@ const SchedulePage: React.FC = () => {
                     <td className="px-8 py-4 w-28 min-w-[110px] font-bold text-gray-900 sticky left-0 z-10 bg-white !bg-white shadow-[4px_0_12px_-4px_rgba(0,0,0,0.06)] border-r border-gray-100 overflow-hidden h-full whitespace-nowrap">
                       {time}
                     </td>
-                    {Object.keys(schedule).map((date, idx) => (
-                      <td
-                        key={`${date}-${time}`}
-                        className={
-                          `px-6 py-4 whitespace-nowrap text-center text-sm ` +
-                          (schedule[date]?.[time]?.booked
-                            ? "bg-indigo-50"
-                            : "cursor-pointer hover:bg-indigo-100") +
-                          " transition-colors duration-150" +
-                          (idx === 0 ? " hidden sm:table-cell" : "")
-                        }
-                        onClick={() => handleSlotClick(date, time)}
-                      >
-                        {schedule[date]?.[time]?.booked ? (
-                          <div className="flex flex-col items-center">
-                            <span className="font-medium text-indigo-600">
-                              {schedule[date][time].childName}
-                            </span>
-                            <button
-                              className="mt-1 text-xs text-red-500 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCancelBooking(date, time);
-                              }}
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="h-6 flex items-center justify-center text-gray-400">
-                            <span>Disponível</span>
-                          </div>
-                        )}
-                      </td>
-                    ))}
+                    {Object.keys(schedule).map((date, idx) => {
+                      const slot = schedule[date][time];
+                      return (
+                        <td
+                          key={`${date}-${time}`}
+                          className={`px-6 py-4 whitespace-nowrap text-center text-sm ${
+                            slot.booked
+                              ? "bg-indigo-50"
+                              : "cursor-pointer hover:bg-indigo-100"
+                          } transition-colors duration-150 ${
+                            idx === 0 ? "hidden sm:table-cell" : ""
+                          }`}
+                          onClick={() => handleSlotClick(date, time)}
+                        >
+                          {slot.booked ? (
+                            <div className="flex flex-col items-center">
+                              <span className="font-medium text-indigo-600">
+                                {slot.childName}
+                              </span>
+                              <button
+                                className="mt-1 text-xs text-red-500 hover:text-red-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelBooking(date, time);
+                                }}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="h-6 flex items-center justify-center text-gray-400">
+                              <span>Disponível</span>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -319,7 +364,7 @@ const SchedulePage: React.FC = () => {
       {showBookingModal && selectedSlot && (
         <Modal
           isOpen={showBookingModal}
-          onClose={() => setShowBookingModal(false)}
+          onClose={handleModalClose}
           title="Agendar Aula"
         >
           <div className="text-center">
@@ -341,7 +386,7 @@ const SchedulePage: React.FC = () => {
                   label: child.name,
                 }))}
                 value={selectedChild}
-                onChange={(e) => setSelectedChild(e.target.value)}
+                onChange={handleChildChange}
                 placeholder="Selecione um aluno"
                 required
                 disabled={
