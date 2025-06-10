@@ -24,8 +24,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+  const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("token")
   );
   const [loading, setLoading] = useState(true);
@@ -34,37 +37,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem("token");
-      const storedUserType = localStorage.getItem("userType");
+      const storedUser = localStorage.getItem("user");
 
-      if (storedToken && storedUserType) {
+      if (storedToken && storedUser) {
         try {
-          let fetchedUser: User | null = null;
-          if (storedUserType === "PROFESSORA") {
-            const teacherResponse = await apiService.getCurrentTeacher();
-            fetchedUser = { ...teacherResponse.data, role: "PROFESSORA" };
-          } else if (storedUserType === "RESPONSAVEL") {
-            const guardianResponse = await apiService.getCurrentGuardian();
-            fetchedUser = { ...guardianResponse.data, role: "RESPONSAVEL" };
-          }
+          // Verifica se o token ainda é válido
+          await apiService.verifyToken(storedToken);
 
-          if (fetchedUser) {
-            setToken(storedToken);
-            setUser(fetchedUser);
-            localStorage.setItem("user", JSON.stringify(fetchedUser));
-          } else {
-            console.error("Could not fetch current user data, forcing logout.");
-            logout();
+          const parsedUser = JSON.parse(storedUser) as User;
+
+          // Atualiza os dados do usuário
+          try {
+            let fetchedUser: User | null = null;
+            if (parsedUser.role === "PROFESSORA") {
+              const teacherResponse = await apiService.getCurrentTeacher();
+              fetchedUser = { ...teacherResponse.data, role: "PROFESSORA" };
+            } else if (parsedUser.role === "RESPONSAVEL") {
+              const guardianResponse = await apiService.getCurrentGuardian();
+              fetchedUser = { ...guardianResponse.data, role: "RESPONSAVEL" };
+            }
+
+            if (fetchedUser) {
+              setToken(storedToken);
+              setUser(fetchedUser);
+              localStorage.setItem("user", JSON.stringify(fetchedUser));
+            } else {
+              throw new Error("Could not fetch current user data");
+            }
+          } catch (error) {
+            console.error("Error fetching current user data:", error);
+            throw error;
           }
         } catch (error) {
-          console.error("Error fetching current user data:", error);
-          logout();
+          console.error("Error during auth initialization:", error);
+          await logout();
         }
       } else {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("userType");
-        localStorage.removeItem("responsavelId");
-        localStorage.removeItem("professorId");
+        // Limpa qualquer dado de autenticação residual
+        await logout();
       }
       setLoading(false);
     };
@@ -84,17 +94,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         !response.data.email ||
         !response.data.role
       ) {
-        console.error(
-          "Login response data is incomplete or invalid:",
-          response.data
-        );
         throw new Error("Invalid credentials or unexpected server response.");
       }
 
       const { token, id, name, email: userEmail, role } = response.data;
 
       if (!["PROFESSORA", "RESPONSAVEL"].includes(role)) {
-        console.error("Attempted login with unsupported role:", role);
         throw new Error("Role not supported for login.");
       }
 
@@ -105,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role: role as "PROFESSORA" | "RESPONSAVEL",
       };
 
+      // Salva os dados de autenticação
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(loggedInUser));
       localStorage.setItem("userType", loggedInUser.role);
@@ -112,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (loggedInUser.role === "RESPONSAVEL") {
         localStorage.setItem("responsavelId", loggedInUser.id);
         localStorage.removeItem("professorId");
-      } else if (loggedInUser.role === "PROFESSORA") {
+      } else {
         localStorage.setItem("professorId", loggedInUser.id);
         localStorage.removeItem("responsavelId");
       }
@@ -120,13 +126,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setToken(token);
       setUser(loggedInUser);
 
+      // Redireciona para a página apropriada
       if (loggedInUser.role === "PROFESSORA") {
         navigate("/teacher-dashboard");
-      } else if (loggedInUser.role === "RESPONSAVEL") {
-        navigate("/children");
       } else {
-        console.warn("Unexpected role after login:", loggedInUser.role);
-        navigate("/");
+        navigate("/children");
       }
     } catch (error) {
       console.error("Authentication failed:", error);
@@ -137,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userType");
@@ -153,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         user,
         token,
-        isAuthenticated: !!token,
+        isAuthenticated: !!token && !!user,
         login,
         logout,
         loading,

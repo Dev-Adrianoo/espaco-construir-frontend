@@ -11,7 +11,7 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,11 +25,38 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token');
-      window.location.href = '/';
+  async (error) => {
+    const originalRequest = error.config;
+
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Tenta renovar o token
+        const token = localStorage.getItem('token');
+        if (token) {
+          const response = await apiService.verifyToken(token);
+          if (response.data?.token) {
+            // Atualiza o token no localStorage
+            localStorage.setItem('token', response.data.token);
+            
+            // Atualiza o header da requisição original
+            originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
+            
+            // Tenta a requisição original novamente
+            return api(originalRequest);
+          }
+        }
+      } catch {
+        // Se não conseguir renovar o token, faz logout
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('responsavelId');
+        localStorage.removeItem('professorId');
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }
