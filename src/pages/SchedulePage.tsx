@@ -159,7 +159,7 @@ const SchedulePage: React.FC = () => {
   };
 
   // Handle booking confirmation
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedSlot || !selectedChild) {
       console.log("Slot ou aluno não selecionado:", {
         selectedSlot,
@@ -169,47 +169,59 @@ const SchedulePage: React.FC = () => {
     }
 
     const { date, time } = selectedSlot;
-    console.log("Procurando aluno com ID:", selectedChild);
-    console.log("Lista de alunos disponíveis:", children);
-
     const selectedChildData = children.find(
       (child) => child.id === selectedChild
     );
 
     if (!selectedChildData) {
-      console.error("Aluno não encontrado. ID:", selectedChild);
       alert("Erro: Por favor, selecione um aluno válido.");
       return;
     }
 
-    console.log("Dados do aluno encontrado:", selectedChildData);
+    try {
+      await apiService.bookClass({
+        date,
+        time,
+        childId: selectedChildData.id,
+        childName: selectedChildData.name,
+      });
 
-    // Atualiza o agendamento
-    setSchedule((prev) => {
-      const newSchedule = {
-        ...prev,
-        [date]: {
-          ...prev[date],
-          [time]: {
-            childId: selectedChildData.id,
-            childName: selectedChildData.name,
-            booked: true,
+      // Atualiza o estado local para feedback imediato (opcional)
+      setSchedule((prev) => {
+        const newSchedule = {
+          ...prev,
+          [date]: {
+            ...prev[date],
+            [time]: {
+              childId: selectedChildData.id,
+              childName: selectedChildData.name,
+              booked: true,
+            },
           },
-        },
-      };
-      console.log("Novo estado do agendamento:", newSchedule[date][time]);
-      return newSchedule;
-    });
+        };
+        return newSchedule;
+      });
 
-    setShowBookingModal(false);
-    setSelectedSlot(null);
+      setShowBookingModal(false);
+      setSelectedSlot(null);
 
-    alert(
-      `Aula agendada com sucesso para ${selectedChildData.name} em ${format(
-        new Date(date),
-        "dd/MM/yyyy"
-      )} às ${time}. Uma confirmação será enviada via WhatsApp.`
-    );
+      alert(
+        `Aula agendada com sucesso para ${selectedChildData.name} em ${format(
+          new Date(date),
+          "dd/MM/yyyy"
+        )} às ${time}. Uma confirmação será enviada via WhatsApp.`
+      );
+    } catch (err) {
+      // @ts-expect-error: AxiosError pode não ter tipagem correta para response
+      if (err.response?.status === 409) {
+        alert("Conflito: já existe uma aula agendada para esse horário.");
+        // @ts-expect-error: AxiosError pode não ter tipagem correta para response
+      } else if (err.response?.status === 404) {
+        alert("Aluno não encontrado.");
+      } else {
+        alert("Erro ao agendar aula. Tente novamente.");
+      }
+    }
   };
 
   // Handle booking cancellation

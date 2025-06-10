@@ -22,7 +22,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -33,7 +33,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Tenta renovar o token
+        
         const token = localStorage.getItem('token');
         if (token) {
           const response = await apiService.verifyToken(token);
@@ -143,6 +143,9 @@ export const apiService = {
   // Current user
   getCurrentGuardian: () => api.get('/guardians/me'),
   getCurrentTeacher: () => api.get('/professors/me'),
+
+  bookClass: (data: { date: string; time: string; childId: string; childName: string }) =>
+    api.post('/schedules/book', data),
 };
 
 export default api; 
