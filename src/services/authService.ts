@@ -10,7 +10,7 @@ export interface RegisterTeacherData {
   email: string;
   password: string;
   phone: string;
-  specialization: string;
+  cnpj: string;
 }
 
 export interface RegisterResponsibleData {
@@ -45,9 +45,9 @@ const authService = {
     
     const { token, id, name, email, role } = response.data; 
 
-    const userTypeMap: Record<string, 'teacher' | 'responsible' | 'student'> = {
-      'TEACHER': 'teacher',
-      'GUARDIAN': 'responsible',
+    const userTypeMap: Record<string, 'PROFESSORA' | 'RESPONSAVEL' | 'student'> = {
+      'TEACHER': 'PROFESSORA',
+      'GUARDIAN': 'RESPONSAVEL',
       'STUDENT': 'student' 
     };
 
@@ -64,8 +64,16 @@ const authService = {
     };
 
     localStorage.setItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token', authResponse.token);
-    localStorage.setItem('userType', authResponse.user.userType);
+    localStorage.setItem('userType', userType);
     localStorage.setItem('userId', authResponse.user.id);
+    
+    if (userType === 'RESPONSAVEL') {
+      localStorage.setItem('responsavelId', String(id));
+      localStorage.removeItem('professorId');
+    } else if (userType === 'PROFESSORA') {
+      localStorage.setItem('professorId', String(id));
+      localStorage.removeItem('responsavelId');
+    }
     
     return authResponse;
   },
@@ -84,6 +92,8 @@ const authService = {
     localStorage.removeItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token');
     localStorage.removeItem('userType');
     localStorage.removeItem('userId');
+    localStorage.removeItem('responsavelId');
+    localStorage.removeItem('professorId');
   },
 
   isAuthenticated(): boolean {
@@ -95,9 +105,11 @@ const authService = {
   },
 
   getUserId(): string | null {
-    const responsavelId = localStorage.getItem('responsavelId');
-    if (responsavelId) {
-      return responsavelId;
+    const userType = localStorage.getItem('userType');
+    if (userType === 'RESPONSAVEL') {
+      return localStorage.getItem('responsavelId');
+    } else if (userType === 'PROFESSORA') {
+      return localStorage.getItem('professorId');
     }
     return localStorage.getItem('userId');
   }

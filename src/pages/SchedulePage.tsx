@@ -3,13 +3,13 @@ import { format, addDays, startOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import Card, { CardHeader, CardBody } from "../components/Card";
-import { Clock } from "lucide-react";
 import Select from "../components/Select";
-import { apiService, ScheduleDTO } from "../services/api";
+import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 // Time slots available for booking
 const TIME_SLOTS = [
@@ -92,6 +92,19 @@ const SchedulePage: React.FC = () => {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
+  // Novos estados para professores
+  const [teachers, setTeachers] = useState<TeacherDetails[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(
+    null
+  );
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
+
+  // Estado para o dia visível no mobile
+  const [currentDayIndex, setCurrentDayIndex] = useState(0);
+
+  const [showWeekCalendarModal, setShowWeekCalendarModal] = useState(false);
+
   useEffect(() => {
     const fetchAllData = async () => {
       const responsavelId = localStorage.getItem("responsavelId");
@@ -101,6 +114,7 @@ const SchedulePage: React.FC = () => {
         );
         setLoadingChildren(false);
         setLoadingSchedule(false);
+        setLoadingTeachers(false);
         return;
       }
 
@@ -128,6 +142,25 @@ const SchedulePage: React.FC = () => {
         console.error("Erro ao carregar alunos:", err);
       } finally {
         setLoadingChildren(false);
+      }
+
+      // Fetch teachers
+      try {
+        setLoadingTeachers(true);
+        const teachersResponse = await apiService.getTeachers();
+        setTeachers(teachersResponse.data);
+        // Selecionar o primeiro professor por padrão, se houver
+        if (teachersResponse.data.length > 0) {
+          setSelectedTeacherId(String(teachersResponse.data[0].id));
+        }
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setTeachersError(
+          error.response?.data?.message || "Erro ao carregar professoras."
+        );
+        console.error("Erro ao carregar professoras:", err);
+      } finally {
+        setLoadingTeachers(false);
       }
 
       if (fetchedChildren.length > 0) {
@@ -179,9 +212,12 @@ const SchedulePage: React.FC = () => {
     if (
       loadingChildren ||
       loadingSchedule ||
+      loadingTeachers ||
       !!childrenError ||
       !!scheduleError ||
-      children.length === 0
+      !!teachersError ||
+      children.length === 0 ||
+      teachers.length === 0
     ) {
       return;
     }
@@ -208,10 +244,11 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking confirmation
   const handleConfirmBooking = async () => {
-    if (!selectedSlot || !selectedChild) {
-      console.log("Slot ou aluno não selecionado:", {
+    if (!selectedSlot || !selectedChild || !selectedTeacherId) {
+      console.log("Slot, aluno ou professor não selecionado:", {
         selectedSlot,
         selectedChild,
+        selectedTeacherId,
       });
       return;
     }
@@ -237,6 +274,7 @@ const SchedulePage: React.FC = () => {
         childName: selectedChildData.name,
         modality: "IN_PERSON",
         guardianId: guardianId,
+        teacherId: Number(selectedTeacherId),
       });
 
       setSchedule((prev) => {
@@ -255,271 +293,361 @@ const SchedulePage: React.FC = () => {
         return newSchedule;
       });
 
+      alert("Aula agendada com sucesso!");
       setShowBookingModal(false);
       setSelectedSlot(null);
-
-      alert(
-        `Aula agendada com sucesso para ${selectedChildData.name} em ${format(
-          new Date(date),
-          "dd/MM/yyyy"
-        )} às ${time}. Uma confirmação será enviada via WhatsApp.`
-      );
+      setSelectedChild("");
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
-      if (error.response?.status === 409) {
-        alert("Conflito: já existe uma aula agendada para esse horário.");
-      } else if (error.response?.status === 404) {
-        alert("Aluno não encontrado.");
-      } else {
-        alert("Erro ao agendar aula. Tente novamente.");
-      }
+      alert(
+        `Erro ao agendar aula: ${
+          error.response?.data?.message || "Erro desconhecido"
+        }`
+      );
+      console.error("Erro ao agendar aula:", error);
     }
   };
 
-  // Handle booking cancellation
   const handleCancelBooking = async (
     date: string,
     time: string,
     scheduleId: number
   ) => {
-    if (
-      !window.confirm(
-        `Tem certeza que deseja cancelar o agendamento ${scheduleId}?`
-      )
-    ) {
-      return;
-    }
-
     try {
       await apiService.deleteSchedule(scheduleId);
-
-      setSchedule((prev) => ({
-        ...prev,
-        [date]: {
-          ...prev[date],
-          [time]: {
+      setSchedule((prev) => {
+        const newSchedule = { ...prev };
+        if (newSchedule[date] && newSchedule[date][time]) {
+          newSchedule[date][time] = {
             childId: "",
             childName: "",
             booked: false,
-            scheduleId: undefined,
-          },
-        },
-      }));
-
-      alert(`Aula ${scheduleId} cancelada com sucesso.`);
+          };
+        }
+        return newSchedule;
+      });
+      alert("Aula cancelada com sucesso!");
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
+      alert(
+        `Erro ao cancelar aula: ${
+          error.response?.data?.message || "Erro desconhecido"
+        }`
+      );
       console.error("Erro ao cancelar aula:", error);
-      alert("Erro ao cancelar aula. Tente novamente.");
     }
   };
 
   const handleModalClose = () => {
     setShowBookingModal(false);
     setSelectedSlot(null);
+    setSelectedChild("");
   };
 
   const handleChildChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newValue = e.target.value;
-    console.log("Mudando seleção de aluno para:", newValue);
-    const selectedChild = children.find(
-      (child) => String(child.id) === newValue
-    );
-    console.log("Dados do aluno selecionado:", selectedChild);
-    setSelectedChild(newValue);
+    setSelectedChild(e.target.value);
   };
 
-  if (loadingChildren || loadingSchedule) {
+  const handleTeacherChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedTeacherId(e.target.value);
+  };
+
+  if (loadingChildren || loadingSchedule || loadingTeachers) {
     return (
-      <div className="flex justify-center items-center h-40">
+      <div className="flex justify-center items-center h-screen">
         <LoadingSpinner />
-        <p className="ml-2 text-gray-500">Carregando calendário...</p>
+        <p className="ml-2 text-gray-500">Carregando dados...</p>
       </div>
     );
   }
 
-  if (childrenError || scheduleError) {
+  if (childrenError || scheduleError || teachersError) {
     return (
-      <p className="text-center text-red-500 mt-8">
-        Erro ao carregar o calendário: {childrenError || scheduleError}
-      </p>
+      <div className="max-w-4xl mx-auto mt-8 text-center text-red-500">
+        <p>Erro ao carregar dados:</p>
+        {childrenError && <p>{childrenError}</p>}
+        {scheduleError && <p>{scheduleError}</p>}
+        {teachersError && <p>{teachersError}</p>}
+        <p>Por favor, tente novamente mais tarde.</p>
+      </div>
     );
   }
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      <Card className="overflow-visible rounded-t-2xl bg-white">
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-t-2xl">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Agendar Aula</h1>
-            <p className="mt-1 text-gray-600">
-              Clique em um horário disponível para agendar uma aula
-            </p>
-          </div>
-          <div className="mt-3 sm:mt-0">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <span className="inline-block w-3 h-3 bg-indigo-500 rounded-full"></span>
-              <span>Reservado</span>
-              <span className="ml-4 inline-block w-3 h-3 bg-gray-200 rounded-full"></span>
-              <span>Disponível</span>
-            </div>
-          </div>
-        </CardHeader>
-        <p className="block sm:hidden text-center text-xs text-gray-700 bg-gray-100 rounded-md py-2 px-4 mb-3 mt-3 mx-4 flex items-center justify-center gap-1">
-          <span className="text-base">⇄</span>
-          Role para o lado para ver todos os dias disponíveis.
+  if (children.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
+        <h2 className="text-2xl font-bold mb-2">Nenhum filho cadastrado</h2>
+        <p className="text-gray-600 mb-4">
+          Você precisa cadastrar um filho antes de agendar aulas.
         </p>
-        <CardBody className="overflow-x-auto">
-          <div className="min-w-[700px]">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-8 py-3 w-28 min-w-[110px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 z-10 bg-white !bg-white shadow-[4px_0_12px_-4px_rgba(0,0,0,0.06)] border-r border-gray-100 overflow-hidden h-full whitespace-nowrap">
-                    Horário
-                  </th>
-                  {Object.keys(schedule).map((date, idx) => (
-                    <th
-                      key={date}
-                      className={
-                        `px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider` +
-                        (idx === 0 ? " hidden sm:table-cell" : "")
-                      }
-                    >
-                      <div className="flex flex-col items-center">
-                        <span>
-                          {format(new Date(date), "EEEE", { locale: ptBR })}
-                        </span>
-                        <span>{format(new Date(date), "dd/MM")}</span>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {TIME_SLOTS.map((time) => (
-                  <tr key={time} className="hover:bg-gray-50">
-                    <td className="px-8 py-4 w-28 min-w-[110px] font-bold text-gray-900 sticky left-0 z-10 bg-white !bg-white shadow-[4px_0_12px_-4px_rgba(0,0,0,0.06)] border-r border-gray-100 overflow-hidden h-full whitespace-nowrap">
-                      {time}
-                    </td>
-                    {Object.keys(schedule).map((date, idx) => {
-                      const slot = schedule[date][time];
+        <Button
+          onClick={() => alert("Navegar para página de cadastro de filhos")}
+        >
+          Cadastrar Filho
+        </Button>
+      </div>
+    );
+  }
+
+  if (teachers.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
+        <h2 className="text-2xl font-bold mb-2">
+          Nenhuma professora disponível
+        </h2>
+        <p className="text-gray-600 mb-4">
+          Não há professoras cadastradas no momento. Por favor, tente novamente
+          mais tarde.
+        </p>
+      </div>
+    );
+  }
+
+  const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+  return (
+    <div className="w-full !important space-y-6">
+      <Card className="w-full !important">
+        <CardHeader>
+          <h1 className="text-2xl font-bold text-gray-800">Agendar Aula</h1>
+          <p className="mt-1 text-gray-600">
+            Selecione um horário disponível para agendar a aula do seu filho.
+          </p>
+        </CardHeader>
+        <CardBody className="p-0">
+          {/* Desktop view */}
+          <div className="hidden md:block">
+            <div className="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-700 mb-4">
+              {weekDays.map((day) => (
+                <div key={day}>{day}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 7 }).map((_, i) => {
+                const date = addDays(startDate, i);
+                const dateStr = format(date, "yyyy-MM-dd");
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="text-center text-xs text-gray-500">
+                      {format(date, "dd/MM")}
+                    </div>
+                    {TIME_SLOTS.map((time) => {
+                      const slot = schedule[dateStr]?.[time];
+                      const isBooked = slot?.booked;
+                      const isBookedByMyChild = isBooked
+                        ? children.some(
+                            (child) => String(child.id) === slot?.childId
+                          )
+                        : false;
+
                       return (
-                        <td
-                          key={`${date}-${time}`}
-                          className={`px-6 py-4 whitespace-nowrap text-center text-sm ${
-                            slot.booked
-                              ? "bg-indigo-50"
-                              : "cursor-pointer hover:bg-indigo-100"
-                          } transition-colors duration-150 ${
-                            idx === 0 ? "hidden sm:table-cell" : ""
-                          }`}
-                          onClick={() => handleSlotClick(date, time)}
+                        <div
+                          key={time}
+                          className={`relative w-full h-16 rounded-md flex items-center justify-center text-xs font-medium cursor-pointer transition-colors \
+                            ${
+                              isBooked
+                                ? isBookedByMyChild
+                                  ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
+                                  : "bg-gray-200 text-gray-600 cursor-not-allowed"
+                                : "bg-green-100 text-green-700 hover:bg-green-200"
+                            }
+                          `}
+                          onClick={() => handleSlotClick(dateStr, time)}
                         >
-                          {slot.booked ? (
-                            <div className="flex flex-col items-center">
-                              <span className="font-medium text-indigo-600">
-                                {slot.childName}
-                              </span>
-                              <button
-                                className="mt-1 text-xs text-red-500 hover:text-red-700"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (slot.scheduleId) {
-                                    handleCancelBooking(
-                                      date,
-                                      time,
-                                      slot.scheduleId
-                                    );
-                                  }
-                                }}
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="h-6 flex items-center justify-center text-gray-400">
-                              <span>Disponível</span>
-                            </div>
+                          {time}
+                          {isBooked && (
+                            <span
+                              className={`absolute bottom-1 px-1 py-0.5 rounded-full text-[0.6rem] \
+                                ${
+                                  isBookedByMyChild
+                                    ? "bg-blue-400 text-white"
+                                    : "bg-gray-400 text-white"
+                                }
+                              }
+                            `}
+                            >
+                              {slot?.childName}
+                            </span>
                           )}
-                        </td>
+                        </div>
                       );
                     })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mobile view */}
+          <div className="md:hidden">
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setCurrentDayIndex((prev) => Math.max(0, prev - 1))
+                }
+                disabled={currentDayIndex === 0}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <button
+                onClick={() => setShowWeekCalendarModal(true)}
+                className="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-primary transition-colors"
+              >
+                <Calendar className="h-5 w-5" />
+                {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                  locale: ptBR,
+                })}
+              </button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setCurrentDayIndex((prev) => Math.min(6, prev + 1))
+                }
+                disabled={currentDayIndex === 6}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {(() => {
+                const date = addDays(startDate, currentDayIndex);
+                const dateStr = format(date, "yyyy-MM-dd");
+                return TIME_SLOTS.map((time) => {
+                  const slot = schedule[dateStr]?.[time];
+                  const isBooked = slot?.booked;
+                  const isBookedByMyChild = isBooked
+                    ? children.some(
+                        (child) => String(child.id) === slot?.childId
+                      )
+                    : false;
+
+                  return (
+                    <div
+                      key={time}
+                      className={`relative w-full h-16 rounded-md flex items-center justify-center text-xs font-medium cursor-pointer transition-colors \
+                        ${
+                          isBooked
+                            ? isBookedByMyChild
+                              ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
+                              : "bg-gray-200 text-gray-600 cursor-not-allowed"
+                            : "bg-green-100 text-green-700 hover:bg-green-200"
+                        }
+                      `}
+                      onClick={() => handleSlotClick(dateStr, time)}
+                    >
+                      {time}
+                      {isBooked && (
+                        <span
+                          className={`absolute bottom-1 px-1 py-0.5 rounded-full text-[0.6rem] \
+                            ${
+                              isBookedByMyChild
+                                ? "bg-blue-400 text-white"
+                                : "bg-gray-400 text-white"
+                            }
+                          }
+                        `}
+                        >
+                          {slot?.childName}
+                        </span>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
         </CardBody>
       </Card>
 
       {/* Booking Modal */}
-      {showBookingModal && selectedSlot && (
-        <Modal
-          isOpen={showBookingModal}
-          onClose={handleModalClose}
-          title="Agendar Aula"
-        >
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-4">
-              Você está agendando uma aula para{" "}
-              <span className="font-semibold">
-                {format(new Date(selectedSlot.date), "dd/MM/yyyy")}
-              </span>{" "}
-              às <span className="font-semibold">{selectedSlot.time}</span>.
+      <Modal
+        isOpen={showBookingModal}
+        onClose={handleModalClose}
+        title="Confirmar Agendamento"
+      >
+        {selectedSlot && (
+          <div className="space-y-4">
+            <p className="text-gray-700">
+              Você está prestes a agendar uma aula para:
+            </p>
+            <p className="text-lg font-semibold text-gray-800">
+              Data:{" "}
+              {format(parseISO(selectedSlot.date), "dd/MM/yyyy", {
+                locale: ptBR,
+              })}
+            </p>
+            <p className="text-lg font-semibold text-gray-800">
+              Horário: {selectedSlot.time}
             </p>
 
-            <div className="mb-4">
-              <Select
-                label="Selecione o Aluno"
-                id="select-child"
-                name="select-child"
-                options={children.map((child) => ({
-                  value: child.id,
-                  label: child.name,
-                }))}
-                value={selectedChild}
-                onChange={handleChildChange}
-                placeholder="Selecione um aluno"
-                required
-                disabled={
-                  loadingChildren || !!childrenError || children.length === 0
-                }
-              />
-              {loadingChildren && (
-                <p className="text-sm text-gray-500 mt-2">
-                  Carregando alunos...
-                </p>
-              )}
-              {childrenError && (
-                <p className="text-sm text-red-500 mt-2">
-                  Erro ao carregar alunos: {childrenError}
-                </p>
-              )}
-              {!loadingChildren && !childrenError && children.length === 0 && (
-                <p className="text-sm text-red-500 mt-2">
-                  Nenhum aluno cadastrado para este responsável.
-                </p>
-              )}
-            </div>
+            <Select
+              label="Para qual filho?"
+              id="child-select"
+              name="child-select"
+              options={children.map((child) => ({
+                value: child.id,
+                label: child.name,
+              }))}
+              value={selectedChild}
+              onChange={handleChildChange}
+              placeholder="Selecione um filho"
+              required
+            />
 
-            <div className="mt-4 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-gray-400 mr-2" />
-              <p className="text-sm text-gray-600">Duração: 1 hora</p>
-            </div>
-          </div>
+            <Select
+              label="Com qual professora?"
+              id="teacher-select"
+              name="teacher-select"
+              options={teachers.map((teacher) => ({
+                value: String(teacher.id),
+                label: teacher.name,
+              }))}
+              value={selectedTeacherId || ""}
+              onChange={handleTeacherChange}
+              placeholder="Selecione uma professora"
+              required
+            />
 
-          <div className="mt-5 sm:mt-6">
-            <Button
-              type="button"
-              onClick={handleConfirmBooking}
-              disabled={!selectedChild || loadingChildren}
-              className="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
-            >
-              Confirmar via WhatsApp
+            <Button onClick={handleConfirmBooking} className="w-full">
+              Confirmar Agendamento
             </Button>
           </div>
-        </Modal>
-      )}
+        )}
+      </Modal>
+
+      {/* Week Calendar Modal */}
+      <Modal
+        isOpen={showWeekCalendarModal}
+        onClose={() => setShowWeekCalendarModal(false)}
+        title="Selecione o dia da semana"
+      >
+        <div className="grid grid-cols-4 gap-3">
+          {Array.from({ length: 7 }).map((_, i) => {
+            const date = addDays(startDate, i);
+            const isSelected = i === currentDayIndex;
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  setCurrentDayIndex(i);
+                  setShowWeekCalendarModal(false);
+                }}
+                className={`p-6 rounded-lg text-center transition-colors ${
+                  isSelected
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                }`}
+              >
+                <div className="text-[0.6rem] font-medium">
+                  {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
+                </div>
+                <div className="text-lg font-bold">{format(date, "dd")}</div>
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
     </div>
   );
 };

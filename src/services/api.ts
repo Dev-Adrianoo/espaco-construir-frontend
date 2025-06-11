@@ -97,17 +97,17 @@ export const apiService = {
     password: string;
     phone: string;
     cnpj: string;
-  }) => api.post('/professors/register', data),
+  }) => api.post('/teachers/register', data),
 
-  getTeacher: (id: number) => api.get(`/professors/${id}`),
+  getTeacher: (id: number) => api.get(`/teachers/${id}`),
   updateTeacher: (id: number, data: {
     name: string;
     email: string;
     phone: string;
     cnpj: string;
-  }) => api.put(`/professors/${id}`, data),
-  deleteTeacher: (id: number) => api.delete(`/professors/${id}`),
-  getTeachers: () => api.get('/professors'),
+  }) => api.put(`/teachers/${id}`, data),
+  deleteTeacher: (id: number) => api.delete(`/teachers/${id}`),
+  getTeachers: () => api.get('/teachers'),
 
   // Students (Alunos)
   registerStudent: (data: {
@@ -135,6 +135,10 @@ export const apiService = {
   deleteStudent: (id: number) => api.delete(`/students/${id}`),
   getStudents: () => api.get('/students'),
 
+  // New: Get Students by Teacher ID
+  getStudentsByTeacherId: (teacherId: number) => 
+    api.get<TeacherStudent[]>(`/students/teacher/${teacherId}`),
+
   // General endpoints
   getChildren: () => api.get('/children'),
   getCalendar: () => api.get('/calendar'),
@@ -142,13 +146,17 @@ export const apiService = {
 
   // Current user
   getCurrentGuardian: () => api.get('/guardians/me'),
-  getCurrentTeacher: () => api.get('/professors/me'),
+  getCurrentTeacher: () => api.get('/teachers/me'),
 
-  bookClass: (data: { date: string; time: string; childId: string; childName: string; modality: string; guardianId: string }) =>
+  bookClass: (data: { date: string; time: string; childId: string; childName: string; modality: string; guardianId: string; teacherId: number }) =>
     api.post<ScheduleDTO>('/schedules/book', data),
 
   getSchedulesByStudentId: (studentId: number) => 
     api.get<ScheduleDTO[]>(`/schedules/student/${studentId}`),
+
+  // New: Get Schedules by Teacher ID
+  getSchedulesByTeacherId: (teacherId: number) =>
+    api.get<ScheduleDTO[]>(`/schedules/teacher/${teacherId}`),
 
   deleteSchedule: (scheduleId: number) => api.delete(`/schedules/${scheduleId}`),
 };
@@ -166,4 +174,24 @@ export interface ScheduleDTO {
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   meetingLink: string | null;
   modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+}
+
+export interface TeacherStudent {
+  id: number;
+  name: string;
+  age: number;
+  grade: string;
+  parentName: string;
+  parentContact: string;
+  learningDifficulties: string;
+  personalCondition: string;
+  classType: 'IN_PERSON' | 'ONLINE' | 'HYBRID'; 
+}
+
+export interface TeacherDetails {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  cnpj: string;
 } 

@@ -11,8 +11,8 @@ const RegisterTeacherPage: React.FC = () => {
     name: "",
     email: "",
     password: "",
-    Phone: "",
-    CPNJ: "",
+    phone: "",
+    cnpj: "",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [passwordError, setPasswordError] = useState("");
@@ -23,17 +23,19 @@ const RegisterTeacherPage: React.FC = () => {
     if (!formData.name || formData.name.length < 3) {
       newErrors.name = "Nome deve ter pelo menos 3 caracteres";
     }
-    if (!formData.email.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) {
+    if (!formData.email.match(/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/)) {
       newErrors.email = "E-mail inválido";
     }
     if (!formData.password || formData.password.length < 8) {
       newErrors.password = "Senha deve ter pelo menos 8 caracteres";
     }
-    if (!formData.Phone.match(/^\d{10,}$/)) {
-      newErrors.Phone = "Telefone deve ter pelo menos 10 dígitos";
+    if (!formData.phone.match(/^\\+?[1-9][0-9]{10,14}$/)) {
+      newErrors.phone =
+        "Telefone inválido. Deve conter entre 10 e 14 dígitos, opcionalmente com + no início e sem começar com zero após o +. Ex: +5511987654321";
     }
-    if (!formData.CPNJ.match(/^\d{14}$/)) {
-      newErrors.CPNJ = "CNPJ deve ter 14 dígitos";
+    if (!formData.cnpj.match(/^\\d{14}$/)) {
+      newErrors.cnpj =
+        "CNPJ inválido. Deve conter exatamente 14 dígitos numéricos.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -70,11 +72,11 @@ const RegisterTeacherPage: React.FC = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        phone: formData.Phone,
-        cnpj: formData.CPNJ,
+        phone: formData.phone,
+        cnpj: formData.cnpj,
       });
       console.log(response);
-      setFormData({ name: "", email: "", password: "", Phone: "", CPNJ: "" });
+      setFormData({ name: "", email: "", password: "", phone: "", cnpj: "" });
       setIsModalOpen(false);
       setErrors({});
     } catch (error) {
@@ -144,24 +146,24 @@ const RegisterTeacherPage: React.FC = () => {
             <div className="text-red-600 text-sm mt-1">{passwordError}</div>
           )}
           <Input
-            label="CPNJ"
-            id="CPNJ"
-            name="CPNJ"
-            placeholder="Digite o CPNJ"
-            value={formData.CPNJ}
+            label="CNPJ"
+            id="cnpj"
+            name="cnpj"
+            placeholder="Digite o CNPJ"
+            value={formData.cnpj}
             onChange={handleChange}
             required
-            error={errors.CPNJ}
+            error={errors.cnpj}
           />
           <Input
             label="Telefone"
-            id="Phone"
-            name="Phone"
+            id="phone"
+            name="phone"
             placeholder="Digite o telefone"
-            value={formData.Phone}
+            value={formData.phone}
             onChange={handleChange}
             required
-            error={errors.Phone}
+            error={errors.phone}
           />
           <div className="flex justify-end">
             <Button type="submit" disabled={isLoading || !!passwordError}>

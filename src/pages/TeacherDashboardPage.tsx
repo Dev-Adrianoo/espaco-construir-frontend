@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import React, { useState, useEffect } from "react";
+import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import Button from "../components/Button";
@@ -15,119 +15,179 @@ import {
   Book,
   Plus,
 } from "lucide-react";
+import { apiService } from "../services/api";
+import LoadingSpinner from "../components/LoadingSpinner";
+import { AxiosError } from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
-// Mock data for scheduled classes
-const SCHEDULED_CLASSES = [
-  {
-    id: "1",
-    studentId: "student1",
-    studentName: "Maria Silva",
-    date: new Date().toISOString().split("T")[0], // Today
-    time: "10:00",
-    duration: 60,
-    type: "presencial",
-    parentName: "Ana Silva",
-    parentContact: "+55 (11) 1234-5678",
-    notes: "Foco em tabuada",
-  },
-  {
-    id: "2",
-    studentId: "student2",
-    studentName: "Pedro Santos",
-    date: new Date().toISOString().split("T")[0], // Today
-    time: "14:00",
-    duration: 60,
-    type: "online",
-    parentName: "Carlos Santos",
-    parentContact: "+55 (11) 9876-5432",
-    notes: "Prática de compreensão de leitura",
-  },
-  {
-    id: "3",
-    studentId: "student3",
-    studentName: "Julia Oliveira",
-    date: addDays(new Date(), 1).toISOString().split("T")[0], // Tomorrow
-    time: "11:00",
-    duration: 60,
-    type: "presencial",
-    parentName: "Patricia Oliveira",
-    parentContact: "+55 (11) 2222-3333",
-    notes: "Auxílio no projeto de ciências",
-  },
-];
+// Interface para as classes agendadas no frontend
+interface ScheduledClass {
+  id: string;
+  studentId: string; // ID do aluno (string)
+  studentName: string;
+  date: string;
+  time: string;
+  duration: number;
+  type: "presencial" | "online";
+  parentName: string;
+  parentContact: string;
+  notes: string;
+}
 
-// Mock data for students
-const STUDENTS = [
-  {
-    id: "student1",
-    name: "Maria Silva",
-    age: 8,
-    grade: "3º ano",
-    parentName: "Ana Silva",
-    parentContact: "+55 (11) 1234-5678",
-    learningDifficulties: "Dislexia leve",
-    personalCondition: "Nenhuma",
-    classType: "presencial",
-  },
-  {
-    id: "student2",
-    name: "Pedro Santos",
-    age: 10,
-    grade: "5º ano",
-    parentName: "Carlos Santos",
-    parentContact: "+55 (11) 9876-5432",
-    learningDifficulties: "TDAH",
-    personalCondition: "Alergia leve a amendoim",
-    classType: "online",
-  },
-  {
-    id: "student3",
-    name: "Julia Oliveira",
-    age: 7,
-    grade: "2º ano",
-    parentName: "Patricia Oliveira",
-    parentContact: "+55 (11) 2222-3333",
-    learningDifficulties: "Nenhuma",
-    personalCondition: "Nenhuma",
-    classType: "presencial",
-  },
-];
+// Interface para os detalhes do aluno (TeacherStudent do backend)
+interface StudentDetails {
+  id: string;
+  name: string;
+  age: number;
+  grade: string;
+  parentName: string;
+  parentContact: string;
+  learningDifficulties: string;
+  personalCondition: string;
+  classType: "IN_PERSON" | "ONLINE" | "HYBRID";
+}
 
 const TeacherDashboardPage: React.FC = () => {
   const today = new Date();
-  const startDate = startOfWeek(today, { weekStartsOn: 1 }); // Start from Monday
+  const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
+    null
+  );
 
-  // Get classes for the selected date
-  const classesForSelectedDate = SCHEDULED_CLASSES.filter(
+  // Novos estados para dados reais e carregamento
+  const [teacherSchedules, setTeacherSchedules] = useState<ScheduledClass[]>(
+    []
+  );
+  const [teacherStudents, setTeacherStudents] = useState<StudentDetails[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    const fetchTeacherData = async () => {
+      if (authLoading) {
+        setLoadingData(true);
+        return;
+      }
+
+      if (!user || user.role !== "PROFESSORA") {
+        setDataError(
+          "Você precisa estar logado como professor para ver este painel."
+        );
+        setLoadingData(false);
+        return;
+      }
+
+      try {
+        setLoadingData(true);
+        const numTeacherId = Number(user.id);
+
+        // Fetch students for the teacher
+        const studentsResponse = await apiService.getStudentsByTeacherId(
+          numTeacherId
+        );
+        const mappedStudents: StudentDetails[] = studentsResponse.data.map(
+          (s) => ({
+            id: String(s.id),
+            name: s.name,
+            age: s.age,
+            grade: s.grade,
+            parentName: s.parentName, // Assumindo que isso vem da API
+            parentContact: s.parentContact, // Assumindo que isso vem da API
+            learningDifficulties: s.learningDifficulties,
+            personalCondition: s.personalCondition,
+            classType: s.classType, // Assumindo que o tipo de aula vem da API
+          })
+        );
+        setTeacherStudents(mappedStudents);
+
+        // Fetch schedules for the teacher
+        const schedulesResponse = await apiService.getSchedulesByTeacherId(
+          numTeacherId
+        );
+        const mappedSchedules: ScheduledClass[] = schedulesResponse.data.map(
+          (schedule) => {
+            const startTime = parseISO(schedule.startTime);
+            const endTime = parseISO(schedule.endTime);
+            const duration =
+              (endTime.getTime() - startTime.getTime()) / (1000 * 60); // Duration in minutes
+            const student = mappedStudents.find(
+              (s) => s.id === String(schedule.studentId)
+            );
+
+            let classType: "presencial" | "online";
+            switch (schedule.modality) {
+              case "IN_PERSON":
+                classType = "presencial";
+                break;
+              case "ONLINE":
+                classType = "online";
+                break;
+              case "HYBRID":
+                classType = "presencial";
+                break;
+              default:
+                classType = "presencial";
+            }
+
+            return {
+              id: String(schedule.id),
+              studentId: String(schedule.studentId),
+              studentName: student ? student.name : "Aluno Desconhecido",
+              date: format(startTime, "yyyy-MM-dd"),
+              time: format(startTime, "HH:mm"),
+              duration: duration,
+              type: classType,
+              parentName: student ? student.parentName : "",
+              parentContact: student ? student.parentContact : "",
+              notes: schedule.description || "",
+            };
+          }
+        );
+        setTeacherSchedules(mappedSchedules);
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setDataError(
+          error.response?.data?.message ||
+            "Erro ao carregar dados do painel do professor."
+        );
+        console.error("Erro ao carregar dados do professor:", error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchTeacherData();
+  }, [user, authLoading]);
+
+  // Get classes for the selected date - agora usa teacherSchedules
+  const classesForSelectedDate = teacherSchedules.filter(
     (cls) => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
 
-  // Function to get student details
+  // Function to get student details - agora usa teacherStudents
   const getStudentDetails = (studentId: string) => {
-    return STUDENTS.find((student) => student.id === studentId);
+    return teacherStudents.find((student) => student.id === studentId);
   };
 
   // Handle view student details
   const handleViewStudent = (studentId: string) => {
-    setSelectedStudent(studentId);
+    setSelectedStudentId(studentId);
     setShowStudentModal(true);
   };
 
-  // Function to render the weekly calendar
+  // Function to render the weekly calendar - agora usa teacherSchedules
   const renderWeekCalendar = () => {
     const days = [];
 
     for (let i = 0; i < 7; i++) {
       const date = addDays(startDate, i);
       const dateStr = format(date, "yyyy-MM-dd");
-      const dayClasses = SCHEDULED_CLASSES.filter(
-        (cls) => cls.date === dateStr
-      );
+      const dayClasses = teacherSchedules.filter((cls) => cls.date === dateStr);
       const isSelected = isSameDay(date, selectedDate);
 
       days.push(
@@ -175,6 +235,28 @@ const TeacherDashboardPage: React.FC = () => {
     );
   };
 
+  // Renderização condicional com LoadingSpinner
+  if (loadingData || authLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner />
+        <p className="ml-2 text-gray-500">Carregando dados do painel...</p>
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div className="max-w-6xl mx-auto mt-8 text-center text-red-500">
+        <p>Erro ao carregar dados: {dataError}</p>
+        <p>
+          Por favor, tente novamente mais tarde ou verifique seu status de
+          login.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <Card>
@@ -211,128 +293,134 @@ const TeacherDashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {classesForSelectedDate.map((cls) => (
-                  <div
-                    key={cls.id}
-                    className={`bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
-                      selectedClass === cls.id
-                        ? "ring-2 ring-[var(--accent)]"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      setSelectedClass(cls.id === selectedClass ? null : cls.id)
-                    }
-                  >
-                    <div className="border-b border-blue-100 bg-blue-50 px-4 py-3 flex justify-between items-center">
-                      <div className="flex items-center">
-                        <User className="h-5 w-5 text-blue-500 mr-2" />
-                        <span className="font-medium text-gray-800">
-                          {cls.studentName}
-                        </span>
-                        <span className="mx-2 text-gray-400">•</span>
-                        <Clock className="h-4 w-4 text-blue-500 mr-1" />
-                        <span className="text-gray-600">
-                          {cls.time} ({cls.duration} min)
-                        </span>
-                        <span className="mx-2 text-gray-400">•</span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs ${
-                            cls.type === "online"
-                              ? "bg-blue-200 text-blue-900"
-                              : "bg-green-200 text-green-900"
-                          }`}
-                        >
-                          {cls.type === "online" ? "Online" : "Presencial"}
-                        </span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewStudent(cls.studentId);
-                          }}
-                        >
-                          <FileText className="h-5 w-5 text-gray-500" />
-                        </button>
-                        <button
-                          className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            alert(
-                              "Funcionalidade de edição será implementada aqui"
-                            );
-                          }}
-                        >
-                          <Edit className="h-5 w-5 text-gray-500" />
-                        </button>
-                        <button
-                          className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            alert("Mensagem do WhatsApp será enviada aqui");
-                          }}
-                        >
-                          <MessageSquare className="h-5 w-5 text-gray-500" />
-                        </button>
-                      </div>
-                    </div>
-                    {selectedClass === cls.id && (
-                      <div className="px-4 py-3">
-                        <div className="mb-3">
-                          <h3 className="text-sm font-medium text-gray-500 mb-1">
-                            Anotações
-                          </h3>
-                          <p className="text-gray-800">
-                            {cls.notes || "Nenhuma anotação disponível."}
-                          </p>
+                {classesForSelectedDate.map((scheduledClassItem) => {
+                  const studentDetails = getStudentDetails(
+                    scheduledClassItem.studentId
+                  );
+
+                  const classTypeString = scheduledClassItem.type as
+                    | "online"
+                    | "presencial";
+
+                  const typeColorClass =
+                    classTypeString === "online"
+                      ? "bg-blue-200 text-blue-900"
+                      : "bg-green-200 text-green-900";
+
+                  return (
+                    <div
+                      key={scheduledClassItem.id}
+                      className={`bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
+                        selectedClass === scheduledClassItem.id
+                          ? "ring-2 ring-[var(--accent)]"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setSelectedClass(
+                          scheduledClassItem.id === selectedClass
+                            ? null
+                            : scheduledClassItem.id
+                        )
+                      }
+                    >
+                      <div className="border-b border-blue-100 bg-blue-50 px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center">
+                          <User className="h-5 w-5 text-blue-500 mr-2" />
+                          <span className="font-medium text-gray-800">
+                            {scheduledClassItem.studentName}
+                          </span>
+                          <span className="mx-2 text-gray-400">•</span>
+                          <Clock className="h-4 w-4 text-blue-500 mr-1" />
+                          <span className="text-gray-600">
+                            {scheduledClassItem.time} (
+                            {scheduledClassItem.duration} min)
+                          </span>
+                          <span className="mx-2 text-gray-400">•</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs ${typeColorClass}`}
+                          >
+                            {classTypeString === "online"
+                              ? "Online"
+                              : "Presencial"}
+                          </span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:space-x-6">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-500 mb-1">
-                              Contato dos Responsáveis
+                        <div className="flex space-x-2">
+                          <button
+                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                            title="Ver detalhes do aluno"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewStudent(scheduledClassItem.studentId);
+                            }}
+                          >
+                            <FileText className="h-5 w-5 text-gray-500" />
+                          </button>
+                          <button
+                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                            title="Editar aula"
+                          >
+                            <Edit className="h-5 w-5 text-gray-500" />
+                          </button>
+                          <button
+                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                            title="Enviar mensagem"
+                          >
+                            <MessageSquare className="h-5 w-5 text-gray-500" />
+                          </button>
+                        </div>
+                      </div>
+                      {selectedClass === scheduledClassItem.id &&
+                        studentDetails && (
+                          <div className="px-4 py-3 border-t border-blue-100 bg-blue-50">
+                            <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                              Detalhes da Aula e do Aluno
                             </h3>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <Phone className="h-4 w-4 text-gray-400 mr-1" />
-                                <a
-                                  href={`tel:${cls.parentContact}`}
-                                  className="text-indigo-600 hover:text-indigo-800"
-                                >
-                                  {cls.parentContact}
-                                </a>
-                              </div>
-                              <div className="flex items-center">
-                                <MessageSquare className="h-4 w-4 text-gray-400 mr-1" />
-                                <a
-                                  href="#"
-                                  className="text-indigo-600 hover:text-indigo-800"
-                                >
-                                  WhatsApp
-                                </a>
-                              </div>
-                            </div>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Assunto:</span>{" "}
+                              {scheduledClassItem.notes || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">
+                                Idade do Aluno:
+                              </span>{" "}
+                              {studentDetails.age} anos
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Série:</span>{" "}
+                              {studentDetails.grade}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Dificuldades:</span>{" "}
+                              {studentDetails.learningDifficulties || "Nenhuma"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">
+                                Condição Pessoal:
+                              </span>{" "}
+                              {studentDetails.personalCondition || "Nenhuma"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Responsável:</span>{" "}
+                              {studentDetails.parentName || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">
+                                Contato do Responsável:
+                              </span>{" "}
+                              {studentDetails.parentContact || "N/A"}
+                            </p>
                           </div>
-                          <div className="mt-3 sm:mt-0">
-                            <Button
-                              size="sm"
-                              onClick={() => handleViewStudent(cls.studentId)}
-                            >
-                              Ver Detalhes do Aluno
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                        )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
         </CardBody>
       </Card>
       {/* Student Details Modal */}
-      {showStudentModal && selectedStudent && (
+      {showStudentModal && selectedStudentId && (
         <div
           className="fixed inset-0 z-10 overflow-y-auto"
           aria-labelledby="modal-title"
@@ -352,7 +440,7 @@ const TeacherDashboardPage: React.FC = () => {
             </span>
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               {(() => {
-                const student = getStudentDetails(selectedStudent);
+                const student = getStudentDetails(selectedStudentId);
                 if (!student) return null;
                 return (
                   <>
