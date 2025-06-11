@@ -144,8 +144,26 @@ export const apiService = {
   getCurrentGuardian: () => api.get('/guardians/me'),
   getCurrentTeacher: () => api.get('/professors/me'),
 
-  bookClass: (data: { date: string; time: string; childId: string; childName: string }) =>
-    api.post('/schedules/book', data),
+  bookClass: (data: { date: string; time: string; childId: string; childName: string; modality: string; guardianId: string }) =>
+    api.post<ScheduleDTO>('/schedules/book', data),
+
+  getSchedulesByStudentId: (studentId: number) => 
+    api.get<ScheduleDTO[]>(`/schedules/student/${studentId}`),
+
+  deleteSchedule: (scheduleId: number) => api.delete(`/schedules/${scheduleId}`),
 };
 
-export default api; 
+export default api;
+
+export interface ScheduleDTO {
+  id: number;
+  studentId: number;
+  teacherId: number | null;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  description: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  meetingLink: string | null;
+  modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+} 

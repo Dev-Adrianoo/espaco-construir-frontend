@@ -12,6 +12,8 @@ type InputProps = {
   error?: string;
   className?: string;
   maxLength?: number;
+  disabled?: boolean;
+  readOnly?: boolean;
 };
 
 const Input: React.FC<InputProps> = ({
@@ -26,6 +28,8 @@ const Input: React.FC<InputProps> = ({
   error,
   className = "",
   maxLength,
+  disabled,
+  readOnly,
 }) => {
   return (
     <div className={`mb-4 ${className}`}>
@@ -50,6 +54,8 @@ const Input: React.FC<InputProps> = ({
         onChange={onChange}
         required={required}
         maxLength={maxLength}
+        disabled={disabled}
+        readOnly={readOnly}
       />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

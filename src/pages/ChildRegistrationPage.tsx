@@ -3,9 +3,11 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
 import Button from "../components/Button";
-import Card, { CardHeader, CardBody, CardFooter } from "../components/Card";
+import Card, { CardHeader, CardBody } from "../components/Card";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
+import authService from "../services/authService";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const gradeOptions = [
   { value: "kindergarten", label: "Educação Infantil" },
@@ -16,11 +18,6 @@ const gradeOptions = [
   { value: "5th", label: "5º ano" },
   { value: "6th", label: "6º ano" },
 ];
-
-interface GuardianOption {
-  value: string;
-  label: string;
-}
 
 const ChildRegistrationPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -33,9 +30,14 @@ const ChildRegistrationPage: React.FC = () => {
     parent: "",
   });
 
-  const [guardians, setGuardians] = useState<GuardianOption[]>([]);
-  const [loadingGuardians, setLoadingGuardians] = useState(true);
-  const [guardiansError, setGuardiansError] = useState<string | null>(null);
+  const [loggedGuardianId, setLoggedGuardianId] = useState<string | null>(null);
+  const [loggedGuardianName, setLoggedGuardianName] = useState<string | null>(
+    null
+  );
+  const [loadingLoggedGuardian, setLoadingLoggedGuardian] = useState(true);
+  const [loggedGuardianError, setLoggedGuardianError] = useState<string | null>(
+    null
+  );
 
   const [submissionStatus, setSubmissionStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -45,25 +47,34 @@ const ChildRegistrationPage: React.FC = () => {
   );
 
   useEffect(() => {
-    const fetchGuardians = async () => {
+    const fetchLoggedGuardian = async () => {
+      const userId = authService.getUserId();
+      if (!userId) {
+        setLoggedGuardianError(
+          "Você precisa estar logado para cadastrar um filho."
+        );
+        setLoadingLoggedGuardian(false);
+        return;
+      }
+
       try {
-        const response = await apiService.getResponsibles();
-        const options = response.data.map((guardian: any) => ({
-          value: String(guardian.id),
-          label: guardian.name,
-        }));
-        setGuardians(options);
+        setLoadingLoggedGuardian(true);
+        const response = await apiService.getCurrentGuardian();
+        setLoggedGuardianId(String(response.data.id));
+        setLoggedGuardianName(response.data.name);
+        setFormData((prev) => ({ ...prev, parent: String(response.data.id) }));
       } catch (err) {
         const error = err as AxiosError<{ message: string }>;
-        setGuardiansError(
-          error.response?.data?.message || "Erro ao carregar responsáveis."
+        setLoggedGuardianError(
+          error.response?.data?.message ||
+            "Erro ao carregar dados do responsável logado."
         );
       } finally {
-        setLoadingGuardians(false);
+        setLoadingLoggedGuardian(false);
       }
     };
 
-    fetchGuardians();
+    fetchLoggedGuardian();
   }, []);
 
   const handleChange = (
@@ -72,6 +83,7 @@ const ChildRegistrationPage: React.FC = () => {
     >
   ) => {
     const { name, value } = e.target;
+    if (name === "parent") return;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -87,16 +99,24 @@ const ChildRegistrationPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!loggedGuardianId) {
+      setSubmissionStatus("error");
+      setSubmissionMessage(
+        "Responsável não identificado. Por favor, faça login novamente."
+      );
+      return;
+    }
+
     setSubmissionStatus("loading");
     setSubmissionMessage(null);
 
     try {
       await apiService.registerStudent({
         name: formData.name,
-        email: `${formData.name.toLowerCase().replace(/ /g, "")}@example.com`, // Assuming a simple email for now
-        password: "password123", // Assuming a default password for now
-        phone: "11999999999", // Assuming a default phone for now
-        guardianId: Number(formData.parent),
+        email: `${formData.name.toLowerCase().replace(/ /g, "")}@example.com`,
+        password: "password123",
+        phone: "11999999999",
+        guardianId: Number(loggedGuardianId),
         age: Number(formData.age),
         grade: formData.grade,
         condition: formData.condition,
@@ -105,7 +125,6 @@ const ChildRegistrationPage: React.FC = () => {
       setSubmissionStatus("success");
       setSubmissionMessage("Aluno cadastrado com sucesso!");
 
-      // Reset form after submission
       setFormData({
         name: "",
         age: "",
@@ -113,7 +132,7 @@ const ChildRegistrationPage: React.FC = () => {
         difficulties: "",
         condition: "",
         classType: "in-person",
-        parent: "",
+        parent: String(loggedGuardianId),
       });
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
@@ -122,13 +141,43 @@ const ChildRegistrationPage: React.FC = () => {
         error.response?.data?.message || "Erro ao cadastrar aluno."
       );
     } finally {
-      // Optionally hide message after a few seconds
       setTimeout(() => {
         setSubmissionStatus("idle");
         setSubmissionMessage(null);
       }, 5000);
     }
   };
+
+  if (loadingLoggedGuardian) {
+    return (
+      <div className="flex justify-center items-center h-40">
+        <LoadingSpinner />
+        <p className="ml-2 text-gray-500">Carregando dados do responsável...</p>
+      </div>
+    );
+  }
+
+  if (loggedGuardianError) {
+    return (
+      <div className="max-w-2xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
+        <h2 className="text-2xl font-bold mb-2">
+          Erro ao carregar responsável
+        </h2>
+        <p className="text-gray-600">{loggedGuardianError}</p>
+      </div>
+    );
+  }
+
+  if (!loggedGuardianId) {
+    return (
+      <div className="max-w-2xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
+        <h2 className="text-2xl font-bold mb-2">Faça login como responsável</h2>
+        <p className="text-gray-600">
+          Você precisa estar logado como responsável para cadastrar um filho.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -158,121 +207,103 @@ const ChildRegistrationPage: React.FC = () => {
             </div>
           )}
 
-          {loadingGuardians ? (
-            <p className="text-center text-gray-500">
-              Carregando responsáveis...
-            </p>
-          ) : guardiansError ? (
-            <p className="text-center text-red-500">Erro: {guardiansError}</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Nome Completo do Aluno"
-                  id="name"
-                  name="name"
-                  placeholder="Digite o nome do aluno"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-
-                <Input
-                  label="Idade"
-                  id="age"
-                  name="age"
-                  type="number"
-                  placeholder="Digite a idade do aluno"
-                  value={formData.age}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <Select
-                label="Série Escolar"
-                id="grade"
-                name="grade"
-                options={gradeOptions}
-                value={formData.grade}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Nome Completo do Aluno"
+                id="name"
+                name="name"
+                placeholder="Digite o nome do aluno"
+                value={formData.name}
                 onChange={handleChange}
-                placeholder="Selecione a série"
                 required
               />
 
-              <Textarea
-                label="Dificuldades de Aprendizagem (se houver)"
-                id="difficulties"
-                name="difficulties"
-                placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
-                value={formData.difficulties}
+              <Input
+                label="Idade"
+                id="age"
+                name="age"
+                type="number"
+                placeholder="Digite a idade do aluno"
+                value={formData.age}
                 onChange={handleChange}
-              />
-
-              <Textarea
-                label="Condição Pessoal"
-                id="condition"
-                name="condition"
-                placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
-                value={formData.condition}
-                onChange={handleChange}
-              />
-
-              <div className="space-y-2">
-                <p className="block text-sm font-medium text-gray-700">
-                  Tipo de Aula
-                </p>
-                <div className="flex space-x-6">
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      className="form-radio h-4 w-4 text-indigo-600"
-                      name="classType"
-                      value="online"
-                      checked={formData.classType === "online"}
-                      onChange={handleRadioChange}
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Online</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      className="form-radio h-4 w-4 text-indigo-600"
-                      name="classType"
-                      value="in-person"
-                      checked={formData.classType === "in-person"}
-                      onChange={handleRadioChange}
-                    />
-                    <span className="ml-2 text-sm text-gray-700">
-                      Presencial
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <Select
-                label="Responsável"
-                id="parent"
-                name="parent"
-                options={guardians}
-                value={formData.parent}
-                onChange={handleChange}
-                placeholder="Vincular ao responsável"
                 required
               />
+            </div>
 
-              <CardFooter className="flex justify-end">
-                <Button variant="outline" className="mr-3">
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={submissionStatus === "loading"}>
-                  {submissionStatus === "loading"
-                    ? "Cadastrando..."
-                    : "Cadastrar"}
-                </Button>
-              </CardFooter>
-            </form>
-          )}
+            <Select
+              label="Série Escolar"
+              id="grade"
+              name="grade"
+              options={gradeOptions}
+              value={formData.grade}
+              onChange={handleChange}
+              placeholder="Selecione a série"
+              required
+            />
+
+            <Textarea
+              label="Dificuldades de Aprendizagem (se houver)"
+              id="difficulties"
+              name="difficulties"
+              placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
+              value={formData.difficulties}
+              onChange={handleChange}
+            />
+
+            <Textarea
+              label="Condição Pessoal"
+              id="condition"
+              name="condition"
+              placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
+              value={formData.condition}
+              onChange={handleChange}
+            />
+
+            <Input
+              label="Responsável"
+              id="parent"
+              name="parent"
+              value={loggedGuardianName || ""}
+              disabled
+              readOnly
+              required
+            />
+
+            <div className="space-y-2">
+              <p className="block text-sm font-medium text-gray-700">
+                Tipo de Aula
+              </p>
+              <div className="flex space-x-6">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio h-4 w-4 text-indigo-600"
+                    name="classType"
+                    value="online"
+                    checked={formData.classType === "online"}
+                    onChange={handleRadioChange}
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Online</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio h-4 w-4 text-indigo-600"
+                    name="classType"
+                    value="in-person"
+                    checked={formData.classType === "in-person"}
+                    onChange={handleRadioChange}
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Presencial</span>
+                </label>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={submissionStatus === "loading"}>
+              {submissionStatus === "loading" ? "Cadastrando..." : "Cadastrar"}
+            </Button>
+          </form>
         </CardBody>
       </Card>
     </div>

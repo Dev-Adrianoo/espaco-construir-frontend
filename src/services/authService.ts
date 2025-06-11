@@ -3,7 +3,6 @@ import api from './api';
 export interface LoginCredentials {
   email: string;
   password: string;
-  userType: 'teacher' | 'responsible';
 }
 
 export interface RegisterTeacherData {
@@ -22,31 +21,57 @@ export interface RegisterResponsibleData {
   address: string;
 }
 
+interface BackendAuthResponse {
+  token: string;
+  id: number;
+  name: string;
+  email: string;
+  role: 'TEACHER' | 'GUARDIAN' | 'STUDENT';
+}
+
 export interface AuthResponse {
   token: string;
   user: {
     id: string;
     name: string;
     email: string;
-    userType: 'teacher' | 'responsible';
+    userType: 'teacher' | 'responsible' | 'student';
   };
 }
 
 const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/login', credentials);
-    const { token, user } = response.data;
+    const response = await api.post<BackendAuthResponse>('/auth/login', credentials); 
     
-    // Store auth data
-    localStorage.setItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token', token);
-    localStorage.setItem('userType', user.userType);
-    localStorage.setItem('userId', user.id);
+    const { token, id, name, email, role } = response.data; 
+
+    const userTypeMap: Record<string, 'teacher' | 'responsible' | 'student'> = {
+      'TEACHER': 'teacher',
+      'GUARDIAN': 'responsible',
+      'STUDENT': 'student' 
+    };
+
+    const userType = userTypeMap[role] || 'unknown'; 
+
+    const authResponse: AuthResponse = {
+      token,
+      user: {
+        id: String(id),
+        name,
+        email,
+        userType: userType as 'teacher' | 'responsible' | 'student'
+      }
+    };
+
+    localStorage.setItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token', authResponse.token);
+    localStorage.setItem('userType', authResponse.user.userType);
+    localStorage.setItem('userId', authResponse.user.id);
     
-    return response.data;
+    return authResponse;
   },
 
   async registerTeacher(data: RegisterTeacherData): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/professors/register', data);
+    const response = await api.post<AuthResponse>('/teachers/register', data);
     return response.data;
   },
 
@@ -70,6 +95,10 @@ const authService = {
   },
 
   getUserId(): string | null {
+    const responsavelId = localStorage.getItem('responsavelId');
+    if (responsavelId) {
+      return responsavelId;
+    }
     return localStorage.getItem('userId');
   }
 };

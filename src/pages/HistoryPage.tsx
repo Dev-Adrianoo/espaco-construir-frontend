@@ -1,73 +1,143 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import Select from "../components/Select";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { apiService, ScheduleDTO } from "../services/api";
+import authService from "../services/authService";
 
-const CHILDREN = [
-  { id: "child1", name: "Maria Silva" },
-  { id: "child2", name: "Pedro Santos" },
-];
 
-const LESSON_HISTORY = [
-  {
-    id: "1",
-    childId: "child1",
-    date: "2025-04-15",
-    time: "10:00",
-    status: "attended",
-    teacherNotes:
-      "Maria teve um ótimo desempenho com multiplicação hoje. Completou todos os exercícios propostos e demonstrou boa compreensão do conceito. Continuaremos praticando com problemas escritos na próxima aula.",
-    teacherName: "Profa. Rodriguez",
-  },
-  {
-    id: "2",
-    childId: "child1",
-    date: "2025-04-08",
-    time: "10:00",
-    status: "absent",
-    teacherNotes:
-      "Ausente por motivo de doença. Remarcaremos esta aula e recuperaremos o conteúdo na próxima semana.",
-    teacherName: "Profa. Rodriguez",
-  },
-  {
-    id: "3",
-    childId: "child1",
-    date: "2025-04-01",
-    time: "10:00",
-    status: "attended",
-    teacherNotes:
-      "Focamos em adição e subtração com reagrupamento. Maria teve dificuldade com alguns problemas mais complexos. Estou passando exercícios extras para esta semana.",
-    teacherName: "Profa. Rodriguez",
-  },
-  {
-    id: "4",
-    childId: "child2",
-    date: "2025-04-14",
-    time: "15:00",
-    status: "attended",
-    teacherNotes:
-      "Pedro mostrou grande progresso na compreensão de leitura hoje. Lemos uma história curta e ele conseguiu responder perguntas sobre as ideias principais e detalhes de suporte.",
-    teacherName: "Prof. Johnson",
-  },
-  {
-    id: "5",
-    childId: "child2",
-    date: "2025-04-07",
-    time: "15:00",
-    status: "late",
-    teacherNotes:
-      "Pedro chegou 15 minutos atrasado. Conseguimos cobrir a maior parte do material planejado, mas por favor, tentem garantir pontualidade para máximo aproveitamento.",
-    teacherName: "Prof. Johnson",
-  },
-];
+interface Child {
+  id: number;
+  name: string;
+}
+
+interface Lesson {
+  id: string; 
+  childId: number;
+  date: string;
+  time: string;
+  status: "attended" | "absent" | "late" | "scheduled" | "in_progress"; 
+  teacherNotes: string;
+  teacherName: string; 
+  subject: string; 
+}
 
 const HistoryPage: React.FC = () => {
   const [selectedChild, setSelectedChild] = useState<string>("all");
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState<boolean>(true);
+  const [childrenError, setChildrenError] = useState<string | null>(null);
 
-  const filteredLessons =
-    selectedChild === "all"
-      ? LESSON_HISTORY
-      : LESSON_HISTORY.filter((lesson) => lesson.childId === selectedChild);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState<boolean>(true);
+  const [lessonsError, setLessonsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRequiredData = async () => {
+      const userId = authService.getUserId();
+      const userType = authService.getUserType();
+
+      if (!userId || userType !== "responsible") {
+        setLoadingChildren(false);
+        setLoadingLessons(false);
+        return;
+      }
+
+      // Fetch children
+      let fetchedChildren: Child[] = [];
+      try {
+        setLoadingChildren(true);
+        const childrenResponse = await apiService.getChildrenByResponsible(
+          Number(userId)
+        );
+        fetchedChildren = childrenResponse.data;
+        setChildren(fetchedChildren);
+      } catch (err) {
+        console.error("Erro ao buscar filhos:", err);
+        setChildrenError("Não foi possível carregar os filhos.");
+      } finally {
+        setLoadingChildren(false);
+      }
+
+      // Fetch all lessons (schedules) for each child
+      if (fetchedChildren.length > 0) {
+        try {
+          setLoadingLessons(true);
+          const allSchedules: ScheduleDTO[] = [];
+          for (const child of fetchedChildren) {
+            const schedulesResponse = await apiService.getSchedulesByStudentId(
+              child.id
+            );
+            allSchedules.push(...schedulesResponse.data);
+          }
+
+          // Map ScheduleDTO to Lesson interface
+          const mappedLessons: Lesson[] = allSchedules.map((schedule) => {
+            const startTime = new Date(schedule.startTime);
+            const date = startTime.toISOString().split("T")[0]; // YYYY-MM-DD
+            const time = startTime.toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
+
+            let status: Lesson["status"];
+            switch (schedule.status) {
+              case "COMPLETED":
+                status = "attended";
+                break;
+              case "CANCELLED":
+                status = "absent";
+                break;
+              case "SCHEDULED":
+                status = "scheduled";
+                break;
+              case "IN_PROGRESS":
+                status = "in_progress";
+                break;
+              default:
+                status = "scheduled"; // Default para um status conhecido
+            }
+
+            return {
+              id: String(schedule.id),
+              childId: schedule.studentId,
+              date: date,
+              time: time,
+              status: status,
+              teacherNotes: schedule.description || "", // Usa description para teacherNotes
+              teacherName: "Professor Desconhecido", // Placeholder, pois não está no ScheduleDTO
+              subject: schedule.subject || "",
+            };
+          });
+          setAllLessons(mappedLessons);
+        } catch (err) {
+          console.error("Erro ao buscar histórico de aulas:", err);
+          setLessonsError("Não foi possível carregar o histórico de aulas.");
+        } finally {
+          setLoadingLessons(false);
+        }
+      } else {
+        setLoadingLessons(false);
+        setAllLessons([]); // Não há filhos, então não há lições
+      }
+    };
+    fetchRequiredData();
+  }, []);
+
+  const filteredLessons = allLessons.filter((lesson) => {
+    const isResponsibleChild = children.some(
+      (child) => child.id === lesson.childId
+    );
+    if (!isResponsibleChild) {
+      return false;
+    }
+
+    if (selectedChild === "all") {
+      return true;
+    }
+    return String(lesson.childId) === selectedChild;
+  });
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -79,7 +149,7 @@ const HistoryPage: React.FC = () => {
     return new Date(dateString).toLocaleDateString("pt-BR", options);
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: Lesson["status"]) => {
     switch (status) {
       case "attended":
         return <CheckCircle className="h-5 w-5 text-secondary-500" />;
@@ -87,12 +157,16 @@ const HistoryPage: React.FC = () => {
         return <XCircle className="h-5 w-5 text-red-500" />;
       case "late":
         return <AlertCircle className="h-5 w-5 text-primary-500" />;
+      case "scheduled":
+        return <CheckCircle className="h-5 w-5 text-blue-500" />;
+      case "in_progress":
+        return <AlertCircle className="h-5 w-5 text-orange-500" />;
       default:
         return null;
     }
   };
 
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: Lesson["status"]) => {
     switch (status) {
       case "attended":
         return (
@@ -112,6 +186,18 @@ const HistoryPage: React.FC = () => {
             Atrasado
           </span>
         );
+      case "scheduled":
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-500">
+            Agendado
+          </span>
+        );
+      case "in_progress":
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-500">
+            Em Progresso
+          </span>
+        );
       default:
         return null;
     }
@@ -119,8 +205,25 @@ const HistoryPage: React.FC = () => {
 
   const childOptions = [
     { value: "all", label: "Todos os Alunos" },
-    ...CHILDREN.map((child) => ({ value: child.id, label: child.name })),
+    ...children.map((child) => ({
+      value: String(child.id),
+      label: child.name,
+    })),
   ];
+
+  if (loadingChildren || loadingLessons) {
+    return (
+      <p className="text-center text-gray-500 mt-8">Carregando dados...</p>
+    );
+  }
+
+  if (childrenError || lessonsError) {
+    return (
+      <p className="text-center text-red-500 mt-8">
+        Erro ao carregar dados: {childrenError || lessonsError}
+      </p>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -151,14 +254,14 @@ const HistoryPage: React.FC = () => {
           {filteredLessons.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-gray-500">
-                Nenhum histórico de aula disponível.
+                Nenhum histórico de aula disponível para os alunos selecionados.
               </p>
             </div>
           ) : (
             <div className="space-y-8">
               {filteredLessons.map((lesson) => {
                 const childName =
-                  CHILDREN.find((c) => c.id === lesson.childId)?.name || "";
+                  children.find((c) => c.id === lesson.childId)?.name || "";
 
                 return (
                   <div
@@ -181,7 +284,7 @@ const HistoryPage: React.FC = () => {
 
                     <div className="px-4 py-3">
                       <h3 className="text-sm font-medium text-gray-500 mb-1">
-                        Anotações do Professor
+                        Assunto da Aula: {lesson.subject}
                       </h3>
                       <p className="text-gray-800">{lesson.teacherNotes}</p>
                       <p className="mt-2 text-sm text-gray-500">

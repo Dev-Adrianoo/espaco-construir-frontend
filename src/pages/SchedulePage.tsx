@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays, startOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import Card, { CardHeader, CardBody } from "../components/Card";
 import { Clock } from "lucide-react";
 import Select from "../components/Select";
-import { apiService } from "../services/api";
+import { apiService, ScheduleDTO } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
+import authService from "../services/authService";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // Time slots available for booking
 const TIME_SLOTS = [
@@ -49,6 +51,7 @@ type ScheduleType = {
       childId: string;
       childName: string;
       booked: boolean;
+      scheduleId?: number;
     };
   };
 };
@@ -86,25 +89,28 @@ const SchedulePage: React.FC = () => {
     date: string;
     time: string;
   } | null>(null);
-  // const [loadingSchedule, setLoadingSchedule] = useState(true); // Keep commented
-  // const [scheduleError, setScheduleError] = useState<string | null>(null); // Keep commented
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchChildren = async () => {
+    const fetchAllData = async () => {
       const responsavelId = localStorage.getItem("responsavelId");
       if (!responsavelId) {
         setChildrenError(
           "ID do responsável não encontrado. Por favor, faça login novamente."
         );
         setLoadingChildren(false);
+        setLoadingSchedule(false);
         return;
       }
+
+      let fetchedChildren: Child[] = [];
       try {
+        setLoadingChildren(true);
         const response = await apiService.getChildrenByResponsible(
           Number(responsavelId)
         );
 
-        // Garante que os IDs são strings
         const formattedChildren = response.data.map((child: ApiChild) => ({
           ...child,
           id: String(child.id),
@@ -112,7 +118,8 @@ const SchedulePage: React.FC = () => {
 
         console.log("Crianças carregadas:", formattedChildren);
         setChildren(formattedChildren);
-        setSelectedChild(""); // Começa sem nenhum aluno selecionado
+        setSelectedChild("");
+        fetchedChildren = formattedChildren;
       } catch (err) {
         const error = err as AxiosError<{ message: string }>;
         setChildrenError(
@@ -122,33 +129,74 @@ const SchedulePage: React.FC = () => {
       } finally {
         setLoadingChildren(false);
       }
+
+      if (fetchedChildren.length > 0) {
+        try {
+          setLoadingSchedule(true);
+          const currentWeekSchedule: ScheduleType = { ...initialSchedule };
+
+          for (const child of fetchedChildren) {
+            const schedulesResponse = await apiService.getSchedulesByStudentId(
+              Number(child.id)
+            );
+            schedulesResponse.data.forEach((scheduleItem: ScheduleDTO) => {
+              const startTime = parseISO(scheduleItem.startTime);
+              const dateStr = format(startTime, "yyyy-MM-dd");
+              const timeStr = format(startTime, "HH:mm");
+
+              if (
+                currentWeekSchedule[dateStr] &&
+                currentWeekSchedule[dateStr][timeStr]
+              ) {
+                currentWeekSchedule[dateStr][timeStr] = {
+                  childId: String(scheduleItem.studentId),
+                  childName: child.name,
+                  booked: true,
+                  scheduleId: scheduleItem.id,
+                };
+              }
+            });
+          }
+          setSchedule(currentWeekSchedule);
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          console.error("Erro ao carregar agendamentos:", error);
+          setScheduleError("Não foi possível carregar os agendamentos.");
+        } finally {
+          setLoadingSchedule(false);
+        }
+      } else {
+        setLoadingSchedule(false);
+        setSchedule(initialSchedule);
+      }
     };
 
-    // const fetchSchedule = async () => { ... }; // Keep commented
-
-    fetchChildren();
-    // fetchSchedule(); // Keep commented
+    fetchAllData();
   }, []);
 
   // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
-    if (loadingChildren || !!childrenError || children.length === 0) {
+    if (
+      loadingChildren ||
+      loadingSchedule ||
+      !!childrenError ||
+      !!scheduleError ||
+      children.length === 0
+    ) {
       return;
     }
 
     const currentSlot = schedule[date]?.[time];
 
-    // If already booked, check if it's booked by the current user's child
     if (currentSlot && currentSlot.booked) {
       const isBookedByMyChild = children.some(
-        (child) => child.id === currentSlot.childId
+        (child) => String(child.id) === currentSlot.childId
       );
 
-      if (
-        isBookedByMyChild &&
-        window.confirm(`Cancelar a aula para ${currentSlot.childName}?`)
-      ) {
-        handleCancelBooking(date, time);
+      if (isBookedByMyChild && currentSlot.scheduleId) {
+        if (window.confirm(`Cancelar a aula para ${currentSlot.childName}?`)) {
+          handleCancelBooking(date, time, currentSlot.scheduleId);
+        }
       } else if (!isBookedByMyChild) {
         alert(`Este horário já está reservado por outro aluno.`);
       }
@@ -172,21 +220,25 @@ const SchedulePage: React.FC = () => {
     const selectedChildData = children.find(
       (child) => child.id === selectedChild
     );
+    const guardianId = authService.getUserId();
 
-    if (!selectedChildData) {
-      alert("Erro: Por favor, selecione um aluno válido.");
+    if (!selectedChildData || !guardianId) {
+      alert(
+        "Erro: Por favor, selecione um aluno válido e certifique-se de estar logado."
+      );
       return;
     }
 
     try {
-      await apiService.bookClass({
+      const response = await apiService.bookClass({
         date,
         time,
         childId: selectedChildData.id,
         childName: selectedChildData.name,
+        modality: "IN_PERSON",
+        guardianId: guardianId,
       });
 
-      // Atualiza o estado local para feedback imediato (opcional)
       setSchedule((prev) => {
         const newSchedule = {
           ...prev,
@@ -196,6 +248,7 @@ const SchedulePage: React.FC = () => {
               childId: selectedChildData.id,
               childName: selectedChildData.name,
               booked: true,
+              scheduleId: response.data.id,
             },
           },
         };
@@ -212,11 +265,10 @@ const SchedulePage: React.FC = () => {
         )} às ${time}. Uma confirmação será enviada via WhatsApp.`
       );
     } catch (err) {
-      // @ts-expect-error: AxiosError pode não ter tipagem correta para response
-      if (err.response?.status === 409) {
+      const error = err as AxiosError<{ message: string }>;
+      if (error.response?.status === 409) {
         alert("Conflito: já existe uma aula agendada para esse horário.");
-        // @ts-expect-error: AxiosError pode não ter tipagem correta para response
-      } else if (err.response?.status === 404) {
+      } else if (error.response?.status === 404) {
         alert("Aluno não encontrado.");
       } else {
         alert("Erro ao agendar aula. Tente novamente.");
@@ -225,20 +277,41 @@ const SchedulePage: React.FC = () => {
   };
 
   // Handle booking cancellation
-  const handleCancelBooking = (date: string, time: string) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [date]: {
-        ...prev[date],
-        [time]: {
-          childId: "",
-          childName: "",
-          booked: false,
-        },
-      },
-    }));
+  const handleCancelBooking = async (
+    date: string,
+    time: string,
+    scheduleId: number
+  ) => {
+    if (
+      !window.confirm(
+        `Tem certeza que deseja cancelar o agendamento ${scheduleId}?`
+      )
+    ) {
+      return;
+    }
 
-    alert(`Aula cancelada. Uma notificação será enviada via WhatsApp.`);
+    try {
+      await apiService.deleteSchedule(scheduleId);
+
+      setSchedule((prev) => ({
+        ...prev,
+        [date]: {
+          ...prev[date],
+          [time]: {
+            childId: "",
+            childName: "",
+            booked: false,
+            scheduleId: undefined,
+          },
+        },
+      }));
+
+      alert(`Aula ${scheduleId} cancelada com sucesso.`);
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      console.error("Erro ao cancelar aula:", error);
+      alert("Erro ao cancelar aula. Tente novamente.");
+    }
   };
 
   const handleModalClose = () => {
@@ -249,25 +322,26 @@ const SchedulePage: React.FC = () => {
   const handleChildChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newValue = e.target.value;
     console.log("Mudando seleção de aluno para:", newValue);
-    const selectedChild = children.find((child) => child.id === newValue);
+    const selectedChild = children.find(
+      (child) => String(child.id) === newValue
+    );
     console.log("Dados do aluno selecionado:", selectedChild);
     setSelectedChild(newValue);
   };
 
-  if (loadingChildren) {
+  if (loadingChildren || loadingSchedule) {
     return (
-      <p className="text-center text-gray-500 mt-8">Carregando alunos...</p>
+      <div className="flex justify-center items-center h-40">
+        <LoadingSpinner />
+        <p className="ml-2 text-gray-500">Carregando calendário...</p>
+      </div>
     );
   }
 
-  // if (loadingSchedule) { ... } // Keep commented
-
-  // if (scheduleError) { ... } // Keep commented
-
-  if (childrenError) {
+  if (childrenError || scheduleError) {
     return (
       <p className="text-center text-red-500 mt-8">
-        Erro ao carregar alunos: {childrenError}
+        Erro ao carregar o calendário: {childrenError || scheduleError}
       </p>
     );
   }
@@ -350,7 +424,13 @@ const SchedulePage: React.FC = () => {
                                 className="mt-1 text-xs text-red-500 hover:text-red-700"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleCancelBooking(date, time);
+                                  if (slot.scheduleId) {
+                                    handleCancelBooking(
+                                      date,
+                                      time,
+                                      slot.scheduleId
+                                    );
+                                  }
                                 }}
                               >
                                 Cancelar
