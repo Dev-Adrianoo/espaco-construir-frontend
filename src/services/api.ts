@@ -28,22 +28,18 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-
       try {
-        
-        const token = localStorage.getItem('token');
-        if (token) {
-          const response = await apiService.verifyToken(token);
-          if (response.data?.token) {
-            // Atualiza o token no localStorage
-            localStorage.setItem('token', response.data.token);
-            
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          const response = await apiService.refreshToken(refreshToken);
+          if (response.data?.accessToken) {
+            // Atualiza os tokens no localStorage
+            localStorage.setItem('token', response.data.accessToken);
+            localStorage.setItem('refreshToken', response.data.refreshToken);
             // Atualiza o header da requisição original
-            originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-            
+            originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
             // Tenta a requisição original novamente
             return api(originalRequest);
           }
@@ -51,6 +47,7 @@ api.interceptors.response.use(
       } catch {
         // Se não conseguir renovar o token, faz logout
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('userType');
         localStorage.removeItem('responsavelId');
@@ -159,6 +156,12 @@ export const apiService = {
     api.get<ScheduleDTO[]>(`/schedules/teacher/${teacherId}`),
 
   deleteSchedule: (scheduleId: number) => api.delete(`/schedules/${scheduleId}`),
+
+  
+  getAllSchedules: () => api.get<ScheduleDTO[]>(`/schedules`),
+
+  // Novo endpoint para refresh token
+  refreshToken: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
 };
 
 export default api;
@@ -174,6 +177,7 @@ export interface ScheduleDTO {
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   meetingLink: string | null;
   modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  studentName?: string;
 }
 
 export interface TeacherStudent {

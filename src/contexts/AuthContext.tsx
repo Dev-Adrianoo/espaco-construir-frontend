@@ -41,11 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (storedToken && storedUser) {
         try {
-          // Verifica se o token ainda é válido
+          // Tenta verificar o token
           await apiService.verifyToken(storedToken);
-
           const parsedUser = JSON.parse(storedUser) as User;
-
           // Atualiza os dados do usuário
           try {
             let fetchedUser: User | null = null;
@@ -56,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               const guardianResponse = await apiService.getCurrentGuardian();
               fetchedUser = { ...guardianResponse.data, role: "RESPONSAVEL" };
             }
-
             if (fetchedUser) {
               setToken(storedToken);
               setUser(fetchedUser);
@@ -69,8 +66,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             throw error;
           }
         } catch (error) {
-          console.error("Error during auth initialization:", error);
-          await logout();
+          // Se o token expirou, tenta renovar com o refresh token
+          if (storedToken) {
+            try {
+              const response = await apiService.refreshToken(storedToken);
+              if (response.data?.accessToken) {
+                localStorage.setItem("token", response.data.accessToken);
+                setToken(response.data.accessToken);
+                // Atualize o usuário se vier na resposta
+                if (response.data.user) {
+                  setUser(response.data.user);
+                  localStorage.setItem(
+                    "user",
+                    JSON.stringify(response.data.user)
+                  );
+                }
+                setLoading(false);
+                return;
+              }
+            } catch {
+              await logout();
+              setLoading(false);
+              return;
+            }
+          } else {
+            await logout();
+            setLoading(false);
+            return;
+          }
         }
       } else {
         // Limpa qualquer dado de autenticação residual
@@ -78,7 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       setLoading(false);
     };
-
     initializeAuth();
   }, []);
 
@@ -97,7 +119,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error("Invalid credentials or unexpected server response.");
       }
 
-      const { token, id, name, email: userEmail, role } = response.data;
+      const {
+        token,
+        id,
+        name,
+        email: userEmail,
+        role,
+        refreshToken: refreshTokenFromApi,
+      } = response.data;
 
       if (!["PROFESSORA", "RESPONSAVEL"].includes(role)) {
         throw new Error("Role not supported for login.");
@@ -110,8 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role: role as "PROFESSORA" | "RESPONSAVEL",
       };
 
-      // Salva os dados de autenticação
       localStorage.setItem("token", token);
+      if (refreshTokenFromApi) {
+        localStorage.setItem("refreshToken", refreshTokenFromApi);
+      }
       localStorage.setItem("user", JSON.stringify(loggedInUser));
       localStorage.setItem("userType", loggedInUser.role);
 
