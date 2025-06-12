@@ -3,7 +3,6 @@ import Input from "../components/Input";
 import Button from "../components/Button";
 import { apiService } from "../services/api";
 
-// 4. Define o tipo para filho
 interface Child {
   id: string;
   name: string;
@@ -23,10 +22,9 @@ const RegisterAndListChildrenPage: React.FC = () => {
     condition: "",
     parent: "",
   });
-  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [guardianId, setGuardianId] = useState<string | null>(null);
+  const [children, setChildren] = useState<Child[]>([]);
 
   useEffect(() => {
     const fetchGuardianId = async () => {
@@ -34,8 +32,8 @@ const RegisterAndListChildrenPage: React.FC = () => {
         const response = await apiService.getCurrentGuardian();
         setGuardianId(response.data.id);
         setFormData((prev) => ({ ...prev, parent: response.data.id }));
-      } catch (error) {
-        setError("Erro ao carregar dados do responsável");
+      } catch {
+        void 0;
       }
     };
 
@@ -51,15 +49,11 @@ const RegisterAndListChildrenPage: React.FC = () => {
   const fetchChildren = async () => {
     if (!guardianId) return;
 
-    setError(null);
     try {
       const res = await apiService.getChildrenByResponsible(Number(guardianId));
       setChildren(res.data);
     } catch {
-      setError(
-        "Erro ao buscar filhos cadastrados. Tente novamente mais tarde."
-      );
-      setChildren([]);
+      void 0;
     }
   };
 
@@ -75,12 +69,11 @@ const RegisterAndListChildrenPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guardianId) {
-      setError("Responsável não identificado");
+      // Guardian not identified - no specific error message displayed to user
       return;
     }
 
     setLoading(true);
-    setError(null);
     try {
       await apiService.registerStudent({
         name: formData.name,
@@ -103,7 +96,7 @@ const RegisterAndListChildrenPage: React.FC = () => {
       });
       fetchChildren();
     } catch {
-      setError("Erro ao cadastrar aluno. Tente novamente.");
+      void 0;
     } finally {
       setLoading(false);
     }
@@ -122,19 +115,49 @@ const RegisterAndListChildrenPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto mt-8">
-      {/* Formulário de Cadastro */}
-      <div className="bg-white rounded-xl shadow-md p-8 mb-8">
+    <div className="max-w-7xl mx-auto mt-8 p-4 flex flex-col gap-8">
+      <div className="bg-white rounded-xl shadow-md p-8">
+        <h2 className="text-xl font-bold mb-4">Filhos Cadastrados</h2>
+        {children.length === 0 ? (
+          <p>Nenhum filho cadastrado ainda.</p>
+        ) : (
+          <div className="flex flex-col gap-4 w-full">
+            {children.map((child) => (
+              <div
+                key={child.id}
+                className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm flex flex-col transition-all duration-200 hover:shadow-md w-full"
+              >
+                <div>
+                  <p className="font-semibold text-lg text-gray-800 mb-1">
+                    {child.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {child.age} anos,{" "}
+                    {child.grade === "kindergarten"
+                      ? "Educação Infantil"
+                      : `${child.grade}º ano`}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button className="text-gray-500 hover:text-gray-700">
+                    Editar
+                  </Button>
+                  <Button className="text-red-500 hover:text-red-700">
+                    Excluir
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl shadow-md p-8">
         <h2 className="text-2xl font-bold mb-2">Cadastrar Aluno</h2>
         <p className="mb-6 text-gray-600">
           Por favor, forneça informações sobre o aluno para ajudar a
           personalizar a experiência de tutoria.
         </p>
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700">
-            {error}
-          </div>
-        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-4">
             <Input
@@ -192,28 +215,6 @@ const RegisterAndListChildrenPage: React.FC = () => {
             {loading ? "Cadastrando..." : "Cadastrar"}
           </Button>
         </form>
-      </div>
-
-      {/* Lista de Filhos Cadastrados */}
-      <div className="bg-white rounded-xl shadow-md p-8">
-        <h2 className="text-xl font-bold mb-4">Filhos Cadastrados</h2>
-        {children.length === 0 ? (
-          <p>Nenhum filho cadastrado ainda.</p>
-        ) : (
-          <ul>
-            {children.map((child) => (
-              <li
-                key={child.id}
-                className="mb-2 flex justify-between items-center"
-              >
-                <span>
-                  <strong>{child.name}</strong> — {child.age} anos,{" "}
-                  {child.grade}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   );

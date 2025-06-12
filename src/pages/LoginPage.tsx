@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { apiService } from "../services/api";
 import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from "react-hot-toast";
 
 type UserType = "teacher" | "parent";
 
@@ -10,7 +11,6 @@ const LoginPage: React.FC = () => {
     password: "",
   });
   const [userType, setUserType] = useState<UserType | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -26,10 +26,9 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
 
     if (!userType) {
-      setError("Por favor, selecione o tipo de usuário");
+      toast.error("Por favor, selecione o tipo de usuário");
       setLoading(false);
       return;
     }
@@ -54,8 +53,8 @@ const LoginPage: React.FC = () => {
       } else {
         navigate("/children");
       }
-    } catch (error) {
-      setError("Email ou senha inválidos");
+    } catch (_error) {
+      toast.error("Email ou senha inválidos. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -63,6 +62,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 bg-login-svg">
+      <Toaster />
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -97,11 +97,6 @@ const LoginPage: React.FC = () => {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">

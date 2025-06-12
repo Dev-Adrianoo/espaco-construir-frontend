@@ -8,31 +8,36 @@ export default {
       },
       colors: {
         primary: {
-          DEFAULT: '#3B82F6', // Azul principal da logo
-          light: '#60A5FA',
-          dark: '#1D4ED8',
+          DEFAULT: '#6B99B0',
+          light: '#8CBBCF',
+          dark: '#5C829B',
+        },
+        secondary: {
+          DEFAULT: '#88B586',
+          light: '#A7CDB1',
+          dark: '#739A72',
         },
         success: {
-          DEFAULT: '#4ADE80', // Verde da logo
-          light: '#A7F3D0',
-          dark: '#16A34A',
+          DEFAULT: '#4B7F7A',
+          light: '#7AA3A0',
+          dark: '#3E6663',
         },
         warning: {
-          DEFAULT: '#F59E42', // Laranja da logo
-          light: '#FDE68A',
-          dark: '#EA580C',
+          DEFAULT: '#E29485',
+          light: '#ECC2B9',
+          dark: '#CC7C70',
         },
         danger: {
-          DEFAULT: '#EF4444', // Vermelho da logo
+          DEFAULT: '#EF4444',
           light: '#FCA5A5',
           dark: '#B91C1C',
         },
-        background: '#F4F7FD', // Fundo da plataforma
-        card: '#FFFFFF', // Cards e áreas principais
+        background: '#F4F4F4',
+        card: '#F4F4F4',
         accent: {
-          DEFAULT: '#1976d2', // Azul escuro para detalhes
-          light: '#64b5f6',
-          dark: '#0d47a1',
+          DEFAULT: '#6B99B0',
+          light: '#8CBBCF',
+          dark: '#5C829B',
         },
       },
     },

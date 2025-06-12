@@ -3,11 +3,19 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
 import Button from "../components/Button";
-import Card, { CardHeader, CardBody } from "../components/Card";
+// import Card, { CardHeader, CardBody } from "../components/Card";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
+
+interface Child {
+  id: string;
+  name: string;
+  age: number;
+  grade: string;
+  classType: string;
+}
 
 const gradeOptions = [
   { value: "kindergarten", label: "Educação Infantil" },
@@ -39,6 +47,10 @@ const ChildRegistrationPage: React.FC = () => {
     null
   );
 
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState(true);
+  const [childrenError, setChildrenError] = useState<string | null>(null);
+
   const [submissionStatus, setSubmissionStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -63,6 +75,37 @@ const ChildRegistrationPage: React.FC = () => {
         setLoggedGuardianId(String(response.data.id));
         setLoggedGuardianName(response.data.name);
         setFormData((prev) => ({ ...prev, parent: String(response.data.id) }));
+
+        // Fetch children after guardian data is loaded
+        if (response.data.id) {
+          try {
+            setLoadingChildren(true);
+            const childrenResponse = await apiService.getChildrenByResponsible(
+              Number(response.data.id)
+            );
+            const formattedChildren = childrenResponse.data.map(
+              (child: {
+                id: number;
+                name: string;
+                age: number;
+                grade: string;
+                classType: string;
+              }) => ({
+                ...child,
+                id: String(child.id),
+              })
+            );
+            setChildren(formattedChildren);
+          } catch (err) {
+            const error = err as AxiosError<{ message: string }>;
+            setChildrenError(
+              error.response?.data?.message || "Erro ao carregar filhos."
+            );
+            console.error("Erro ao carregar filhos:", err);
+          } finally {
+            setLoadingChildren(false);
+          }
+        }
       } catch (err) {
         const error = err as AxiosError<{ message: string }>;
         setLoggedGuardianError(
@@ -148,7 +191,7 @@ const ChildRegistrationPage: React.FC = () => {
     }
   };
 
-  if (loadingLoggedGuardian) {
+  if (loadingLoggedGuardian || loadingChildren) {
     return (
       <div className="flex justify-center items-center h-40">
         <LoadingSpinner />
@@ -157,13 +200,14 @@ const ChildRegistrationPage: React.FC = () => {
     );
   }
 
-  if (loggedGuardianError) {
+  if (loggedGuardianError || childrenError) {
     return (
       <div className="max-w-2xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
         <h2 className="text-2xl font-bold mb-2">
           Erro ao carregar responsável
         </h2>
         <p className="text-gray-600">{loggedGuardianError}</p>
+        {childrenError && <p className="text-gray-600">{childrenError}</p>}
       </div>
     );
   }
@@ -180,68 +224,68 @@ const ChildRegistrationPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-bold text-gray-800">Cadastrar Aluno</h1>
-          <p className="mt-1 text-gray-600">
-            Por favor, forneça informações sobre o aluno para ajudar a
-            personalizar a experiência de tutoria.
-          </p>
-        </CardHeader>
+    <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="p-4 sm:p-6 lg:p-8 bg-white shadow-md rounded-lg mb-8 lg:mb-0">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          Cadastrar Aluno
+        </h1>
+        <p className="mt-1 text-gray-600 mb-6">
+          Por favor, forneça informações sobre o aluno para ajudar a
+          personalizar a experiência de tutoria.
+        </p>
 
-        <CardBody>
-          {submissionStatus === "loading" && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-600">Cadastrando aluno...</p>
-            </div>
-          )}
-          {submissionStatus === "success" && submissionMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-green-600">{submissionMessage}</p>
-            </div>
-          )}
-          {submissionStatus === "error" && submissionMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{submissionMessage}</p>
-            </div>
-          )}
+        {submissionStatus === "loading" && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-600">Cadastrando aluno...</p>
+          </div>
+        )}
+        {submissionStatus === "success" && submissionMessage && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600">{submissionMessage}</p>
+          </div>
+        )}
+        {submissionStatus === "error" && submissionMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{submissionMessage}</p>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Nome Completo do Aluno"
-                id="name"
-                name="name"
-                placeholder="Digite o nome do aluno"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-
-              <Input
-                label="Idade"
-                id="age"
-                name="age"
-                type="number"
-                placeholder="Digite a idade do aluno"
-                value={formData.age}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <Select
-              label="Série Escolar"
-              id="grade"
-              name="grade"
-              options={gradeOptions}
-              value={formData.grade}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Nome Completo do Aluno"
+              id="name"
+              name="name"
+              placeholder="Digite o nome do aluno"
+              value={formData.name}
               onChange={handleChange}
-              placeholder="Selecione a série"
               required
             />
 
+            <Input
+              label="Idade"
+              id="age"
+              name="age"
+              type="number"
+              placeholder="Digite a idade do aluno"
+              value={formData.age}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <Select
+            label="Série Escolar"
+            id="grade"
+            name="grade"
+            options={gradeOptions}
+            value={formData.grade}
+            onChange={handleChange}
+            placeholder="Selecione a série"
+            required
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Textarea
               label="Dificuldades de Aprendizagem (se houver)"
               id="difficulties"
@@ -259,53 +303,91 @@ const ChildRegistrationPage: React.FC = () => {
               value={formData.condition}
               onChange={handleChange}
             />
+          </div>
 
-            <Input
-              label="Responsável"
-              id="parent"
-              name="parent"
-              value={loggedGuardianName || ""}
-              disabled
-              readOnly
-              required
-            />
+          <Input
+            label="Responsável"
+            id="parent"
+            name="parent"
+            value={loggedGuardianName || ""}
+            disabled
+            readOnly
+            required
+          />
 
-            <div className="space-y-2">
-              <p className="block text-sm font-medium text-gray-700">
-                Tipo de Aula
-              </p>
-              <div className="flex space-x-6">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio h-4 w-4 text-indigo-600"
-                    name="classType"
-                    value="online"
-                    checked={formData.classType === "online"}
-                    onChange={handleRadioChange}
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Online</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio h-4 w-4 text-indigo-600"
-                    name="classType"
-                    value="in-person"
-                    checked={formData.classType === "in-person"}
-                    onChange={handleRadioChange}
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Presencial</span>
-                </label>
-              </div>
+          <div className="space-y-2">
+            <p className="block text-sm font-medium text-gray-700">
+              Tipo de Aula
+            </p>
+            <div className="flex space-x-6">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio h-4 w-4 text-indigo-600"
+                  name="classType"
+                  value="online"
+                  checked={formData.classType === "online"}
+                  onChange={handleRadioChange}
+                />
+                <span className="ml-2 text-sm text-gray-700">Online</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio h-4 w-4 text-indigo-600"
+                  name="classType"
+                  value="in-person"
+                  checked={formData.classType === "in-person"}
+                  onChange={handleRadioChange}
+                />
+                <span className="ml-2 text-sm text-gray-700">Presencial</span>
+              </label>
             </div>
+          </div>
 
-            <Button type="submit" disabled={submissionStatus === "loading"}>
-              {submissionStatus === "loading" ? "Cadastrando..." : "Cadastrar"}
-            </Button>
-          </form>
-        </CardBody>
-      </Card>
+          <Button type="submit" disabled={submissionStatus === "loading"}>
+            {submissionStatus === "loading" ? "Cadastrando..." : "Cadastrar"}
+          </Button>
+        </form>
+      </div>
+
+      <div className="p-4 sm:p-6 lg:p-8 bg-white shadow-md rounded-lg">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          Filhos Cadastrados
+        </h2>
+        {children.length > 0 ? (
+          <div className="flex flex-col gap-4">
+            {children.map((child) => (
+              <div
+                key={child.id}
+                className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md"
+              >
+                <div>
+                  <p className="font-semibold text-lg text-gray-800 mb-1">
+                    {child.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {child.age} anos,{" "}
+                    {child.grade === "kindergarten"
+                      ? "Educação Infantil"
+                      : `${child.grade}º ano`}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="primary" size="sm">
+                    Editar
+                  </Button>
+                  <Button variant="danger" size="sm">
+                    Excluir
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-600">Nenhum filho cadastrado ainda.</p>
+        )}
+      </div>
     </div>
   );
 };

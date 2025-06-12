@@ -1,7 +1,8 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu, X, GraduationCap, User } from "lucide-react";
+import { LogOut, Menu, X, User } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import EspacoConstruirLogo from "../images/espaco-construir-logo.jpeg";
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -35,11 +36,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <GraduationCap className="h-8 w-8 text-[var(--accent)]" />
+                <img
+                  src={EspacoConstruirLogo}
+                  alt="Espaço Construir Logo"
+                  className="h-12 w-12"
+                />
                 <span className="ml-2 text-xl font-bold text-[var(--accent-dark)]">
                   Espaço Construir
                 </span>
@@ -70,7 +75,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)]"
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sair
@@ -141,9 +146,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
         )}
       </header>
 
-      <main className="flex-grow px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {children}
-      </main>
+      <main className="flex-grow w-full">{children}</main>
 
       <footer className="bg-white border-t border-blue-100 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
