@@ -178,6 +178,8 @@ export interface ScheduleDTO {
   meetingLink: string | null;
   modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
   studentName?: string;
+  difficulties: string;
+  condition: string;
 }
 
 export interface TeacherStudent {

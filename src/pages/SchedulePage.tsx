@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
-// import Card, { CardHeader, CardBody } from "../components/Card"; // Card and CardHeader removed
-// import { CardBody } from "../components/Card"; // Only CardBody is kept for now - removed as it's not used
 import Select from "../components/Select";
 import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
@@ -46,6 +44,8 @@ interface Child {
   age: number;
   grade: string;
   classType: string;
+  difficulties: string;
+  condition: string;
 }
 
 interface ApiChild {
@@ -340,6 +340,8 @@ const SchedulePage: React.FC = () => {
         modality: "IN_PERSON",
         guardianId: guardianId,
         teacherId: Number(selectedTeacherId),
+        difficulties: selectedChildData.difficulties,
+        condition: selectedChildData.condition,
       });
 
       setSchedule((prev) => {
@@ -605,7 +607,7 @@ const SchedulePage: React.FC = () => {
         {/* Desktop view */}
         <div className="hidden md:block w-full">
           <div className="grid grid-cols-8 gap-1">
-            {/* Top row for day headers + empty corner */}
+            {/* Top row for day headers + empty corner */}image.png
             <div className="col-span-1"></div>{" "}
             {/* Empty cell for time column header */}
             {weekDays.map((day, index) => {

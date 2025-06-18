@@ -8,6 +8,7 @@ import Button from "../components/Button";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import MaskedInput from "../components/MaskedInput";
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -106,12 +107,13 @@ export default function AuthFlow() {
     setRegistrationSuccess(false);
     setIsLoading(true);
 
+    // Remove formatação do telefone e CNPJ antes de validar/enviar
+    const cleanPhone = registrationFormData.phone.replace(/\D/g, "");
+    const cleanCnpj = registrationFormData.cnpj.replace(/\D/g, "");
+
     // Validar formato do telefone
     const phoneRegex = /^\d{10,11}$/;
-    if (
-      registrationFormData.phone &&
-      !phoneRegex.test(registrationFormData.phone.replace(/\D/g, ""))
-    ) {
+    if (!phoneRegex.test(cleanPhone)) {
       setRegistrationError("O telefone deve ter 10 ou 11 dígitos");
       setIsLoading(false);
       return;
@@ -123,15 +125,15 @@ export default function AuthFlow() {
           name: registrationFormData.name,
           email: registrationFormData.email,
           password: registrationFormData.password,
-          phone: registrationFormData.phone.replace(/\D/g, ""), // Remove não-dígitos
-          cnpj: registrationFormData.cnpj,
+          phone: cleanPhone,
+          cnpj: cleanCnpj,
         });
       } else {
         await apiService.registerResponsible({
           name: registrationFormData.name,
           email: registrationFormData.email,
           password: registrationFormData.password,
-          phone: registrationFormData.phone.replace(/\D/g, ""), // Remove não-dígitos
+          phone: cleanPhone,
         });
       }
 
@@ -154,6 +156,13 @@ export default function AuthFlow() {
       if (error.code === "ERR_NETWORK") {
         setRegistrationError(
           "Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:8080"
+        );
+      } else if (
+        error.response?.status === 400 &&
+        error.response?.data?.message?.includes("already registered")
+      ) {
+        setRegistrationError(
+          "Este e-mail já está cadastrado no sistema. Por favor, use outro e-mail ou faça login."
         );
       } else {
         setRegistrationError(
@@ -280,26 +289,26 @@ export default function AuthFlow() {
             type="password"
           />
           {registrationType === "PROFESSORA" && (
-            <Input
+            <MaskedInput
               label="CNPJ"
               id="cnpj"
               name="cnpj"
-              placeholder="Digite o CNPJ"
+              mask="99.999.999/9999-99"
+              placeholder="00.000.000/0000-00"
               value={registrationFormData.cnpj}
               onChange={handleRegistrationChange}
               required
             />
           )}
-          <Input
+          <MaskedInput
             label="Telefone"
             id="phone"
             name="phone"
-            placeholder="(XX) XXXXX-XXXX"
+            mask="(99) 99999-9999"
+            placeholder="(00) 00000-0000"
             value={registrationFormData.phone}
             onChange={handleRegistrationChange}
             required
-            type="tel"
-            maxLength={15} // Comprimento máximo com a máscara
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Cadastrando..." : "Cadastrar"}

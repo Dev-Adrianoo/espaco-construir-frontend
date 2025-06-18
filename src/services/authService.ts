@@ -65,6 +65,7 @@ const authService = {
     };
 
     localStorage.setItem(import.meta.env.VITE_AUTH_TOKEN_KEY || 'espaco_construir_token', authResponse.token);
+    console.log(authResponse.token);
     localStorage.setItem('userType', userType);
     localStorage.setItem('userId', authResponse.user.id);
     

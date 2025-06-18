@@ -31,7 +31,10 @@ interface ScheduledClass {
   type: "presencial" | "online";
   parentName: string;
   parentContact: string;
-  notes: string;
+  subject: string;
+  description: string;
+  difficulties: string;
+  condition: string;
 }
 
 // Interface para os detalhes do aluno (TeacherStudent do backend)
@@ -69,6 +72,12 @@ const TeacherDashboardPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    console.log(
+      "[TeacherDashboardPage] useEffect - user:",
+      user,
+      "authLoading:",
+      authLoading
+    );
     const fetchTeacherData = async () => {
       if (authLoading) {
         setLoadingData(true);
@@ -110,6 +119,10 @@ const TeacherDashboardPage: React.FC = () => {
         const schedulesResponse = await apiService.getSchedulesByTeacherId(
           numTeacherId
         );
+        console.log(
+          "[TeacherDashboardPage] schedulesResponse",
+          schedulesResponse.data
+        );
         const mappedSchedules: ScheduledClass[] = schedulesResponse.data.map(
           (schedule) => {
             const startTime = parseISO(schedule.startTime);
@@ -138,14 +151,18 @@ const TeacherDashboardPage: React.FC = () => {
             return {
               id: String(schedule.id),
               studentId: String(schedule.studentId),
-              studentName: student ? student.name : "Aluno Desconhecido",
+              studentName:
+                schedule.studentName || student?.name || "Aluno Desconhecido",
               date: format(startTime, "yyyy-MM-dd"),
               time: format(startTime, "HH:mm"),
               duration: duration,
               type: classType,
-              parentName: student ? student.parentName : "",
-              parentContact: student ? student.parentContact : "",
-              notes: schedule.description || "",
+              parentName: student?.parentName || "",
+              parentContact: student?.parentContact || "",
+              subject: schedule.subject || "",
+              description: schedule.description || "",
+              difficulties: schedule.difficulties || "Nenhuma",
+              condition: schedule.condition || "Nenhuma",
             };
           }
         );
@@ -164,23 +181,19 @@ const TeacherDashboardPage: React.FC = () => {
     fetchTeacherData();
   }, [user, authLoading]);
 
-  // Get classes for the selected date - agora usa teacherSchedules
   const classesForSelectedDate = teacherSchedules.filter(
     (cls) => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
 
-  // Function to get student details - agora usa teacherStudents
   const getStudentDetails = (studentId: string) => {
     return teacherStudents.find((student) => student.id === studentId);
   };
 
-  // Handle view student details
   const handleViewStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
     setShowStudentModal(true);
   };
 
-  // Function to render the weekly calendar - agora usa teacherSchedules
   const renderWeekCalendar = () => {
     const days = [];
 
@@ -376,10 +389,6 @@ const TeacherDashboardPage: React.FC = () => {
                               Detalhes da Aula e do Aluno
                             </h3>
                             <p className="text-sm text-gray-700">
-                              <span className="font-medium">Assunto:</span>{" "}
-                              {scheduledClassItem.notes || "N/A"}
-                            </p>
-                            <p className="text-sm text-gray-700">
                               <span className="font-medium">
                                 Idade do Aluno:
                               </span>{" "}
@@ -390,24 +399,16 @@ const TeacherDashboardPage: React.FC = () => {
                               {studentDetails.grade}
                             </p>
                             <p className="text-sm text-gray-700">
-                              <span className="font-medium">Dificuldades:</span>{" "}
-                              {studentDetails.learningDifficulties || "Nenhuma"}
+                              <span className="font-medium">
+                                Dificuldades de Aprendizagem:
+                              </span>{" "}
+                              {scheduledClassItem.difficulties || "Nenhuma"}
                             </p>
                             <p className="text-sm text-gray-700">
                               <span className="font-medium">
                                 Condição Pessoal:
                               </span>{" "}
-                              {studentDetails.personalCondition || "Nenhuma"}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">Responsável:</span>{" "}
-                              {studentDetails.parentName || "N/A"}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">
-                                Contato do Responsável:
-                              </span>{" "}
-                              {studentDetails.parentContact || "N/A"}
+                              {scheduledClassItem.condition || "Nenhuma"}
                             </p>
                           </div>
                         )}
@@ -484,9 +485,9 @@ const TeacherDashboardPage: React.FC = () => {
                                   Tipo de Aula
                                 </h4>
                                 <p className="mt-1 text-gray-900">
-                                  {student.classType === "online"
-                                    ? "Online"
-                                    : "Presencial"}
+                                  {student.classType === "ONLINE"
+                                    ? "ONLINE"
+                                    : "IN_PERSON"}
                                 </p>
                               </div>
                             </div>

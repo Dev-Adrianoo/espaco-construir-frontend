@@ -4,6 +4,7 @@ import Input from "../components/Input";
 import Button from "../components/Button";
 import { apiService } from "../services/api";
 import Modal from "../components/Modal";
+import MaskedInput from "../components/MaskedInput";
 
 const RegisterTeacherPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,21 +20,22 @@ const RegisterTeacherPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const validate = () => {
+    const cleanCnpj = formData.cnpj.replace(/\D/g, "");
+    const cleanPhone = formData.phone.replace(/\D/g, "");
     const newErrors: { [key: string]: string } = {};
     if (!formData.name || formData.name.length < 3) {
       newErrors.name = "Nome deve ter pelo menos 3 caracteres";
     }
-    if (!formData.email.match(/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/)) {
+    if (!formData.email.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) {
       newErrors.email = "E-mail inválido";
     }
     if (!formData.password || formData.password.length < 8) {
       newErrors.password = "Senha deve ter pelo menos 8 caracteres";
     }
-    if (!formData.phone.match(/^\\+?[1-9][0-9]{10,14}$/)) {
-      newErrors.phone =
-        "Telefone inválido. Deve conter entre 10 e 14 dígitos, opcionalmente com + no início e sem começar com zero após o +. Ex: +5511987654321";
+    if (![10, 11].includes(cleanPhone.length)) {
+      newErrors.phone = "Telefone inválido. Deve conter 10 ou 11 dígitos.";
     }
-    if (!formData.cnpj.match(/^\\d{14}$/)) {
+    if (cleanCnpj.length !== 14) {
       newErrors.cnpj =
         "CNPJ inválido. Deve conter exatamente 14 dígitos numéricos.";
     }
@@ -47,8 +49,13 @@ const RegisterTeacherPage: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === "password") {
+
+    if (name === "cnpj" || name === "phone") {
+      // Remove tudo que não for número antes de salvar no estado
+      const numbersOnly = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
+    } else if (name === "password") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
       if (!isPasswordValid(value)) {
         setPasswordError(
           "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número."
@@ -56,6 +63,8 @@ const RegisterTeacherPage: React.FC = () => {
       } else {
         setPasswordError("");
       }
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
@@ -68,12 +77,13 @@ const RegisterTeacherPage: React.FC = () => {
     if (!validate()) return;
     setIsLoading(true);
     try {
+      // Os dados já estão sem formatação no estado
       const response = await apiService.registerTeacher({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        phone: formData.phone,
-        cnpj: formData.cnpj,
+        phone: formData.phone, // Já está apenas com números
+        cnpj: formData.cnpj, // Já está apenas com números
       });
       console.log(response);
       setFormData({ name: "", email: "", password: "", phone: "", cnpj: "" });
@@ -145,21 +155,23 @@ const RegisterTeacherPage: React.FC = () => {
           {passwordError && (
             <div className="text-red-600 text-sm mt-1">{passwordError}</div>
           )}
-          <Input
+          <MaskedInput
             label="CNPJ"
             id="cnpj"
             name="cnpj"
-            placeholder="Digite o CNPJ"
+            mask="99.999.999/9999-99"
+            placeholder="00.000.000/0000-00"
             value={formData.cnpj}
             onChange={handleChange}
             required
             error={errors.cnpj}
           />
-          <Input
+          <MaskedInput
             label="Telefone"
             id="phone"
             name="phone"
-            placeholder="Digite o telefone"
+            mask="(99) 99999-9999"
+            placeholder="(00) 00000-0000"
             value={formData.phone}
             onChange={handleChange}
             required
