@@ -489,109 +489,201 @@ const SchedulePage: React.FC = () => {
         </div>
       );
     }
-    // Layout diário igual ao do responsável
     return (
       <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">
           Agenda da Professora
         </h1>
         <p className="mt-1 text-gray-600 mb-4">
-          Veja seus agendamentos da semana.
+          Veja todos os agendamentos da semana.
         </p>
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentDayIndex((prev) => Math.max(0, prev - 1))}
-            disabled={currentDayIndex === 0}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <button
-            onClick={() => setShowWeekCalendarModal(true)}
-            className="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-primary transition-colors"
-          >
-            <Calendar className="h-5 w-5" />
-            {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
-              locale: ptBR,
-            })}
-          </button>
-          <Button
-            variant="outline"
-            onClick={() => setCurrentDayIndex((prev) => Math.min(6, prev + 1))}
-            disabled={currentDayIndex === 6}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-        <div className="space-y-1">
-          {(() => {
-            const date = addDays(startDate, currentDayIndex);
-            const dateStr = format(date, "yyyy-MM-dd");
-            return TIME_SLOTS.map((time) => {
-              const slot = schedule[dateStr]?.[time];
-              const isBooked = slot?.booked;
-              return (
-                <div
-                  key={time}
-                  className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                    isBooked
-                      ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                      : "bg-green-100 text-green-700 hover:bg-green-200"
-                  }`}
-                >
-                  <span
-                    className={`pt-2 text-sm ${
-                      isBooked ? "text-gray-800" : ""
+        <div className="flex-grow overflow-y-auto">
+          {/* Desktop view */}
+          <div className="hidden md:block w-full">
+            {/* Cabeçalho: horários + dias da semana */}
+            <div className="grid grid-cols-8 gap-1">
+              <div></div> {/* Empty cell for time column header */}
+              {weekDays.map((day, index) => {
+                const date = addDays(startDate, index);
+                const isToday =
+                  format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
+                return (
+                  <div
+                    key={day}
+                    className={`text-center text-sm font-semibold text-gray-700 ${
+                      isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
                     }`}
                   >
-                    {time}
-                  </span>
-                  {isBooked && (
-                    <span
-                      className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
-                      style={{ wordBreak: "break-word", whiteSpace: "normal" }}
-                      title={slot.childName}
-                    >
-                      {slot.childName}
-                    </span>
-                  )}
-                </div>
-              );
-            });
-          })()}
-        </div>
-        {/* Week Calendar Modal */}
-        <Modal
-          isOpen={showWeekCalendarModal}
-          onClose={() => setShowWeekCalendarModal(false)}
-          title="Selecione o dia da semana"
-        >
-          <div className="grid grid-cols-4 gap-3">
-            {Array.from({ length: 7 }).map((_, i) => {
-              const date = addDays(startDate, i);
-              const isSelected = i === currentDayIndex;
-              return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setCurrentDayIndex(i);
-                    setShowWeekCalendarModal(false);
-                  }}
-                  className={`p-6 rounded-lg text-center transition-colors ${
-                    isSelected
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  }`}
-                >
-                  <div className="text-[0.6rem] font-medium">
-                    {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
+                    {day}
                   </div>
-                  <div className="text-lg font-bold">{format(date, "dd")}</div>
-                </button>
-              );
-            })}
+                );
+              })}
+            </div>
+            {/* Grade principal: horários + slots */}
+            <div className="grid grid-cols-8 gap-1">
+              {/* Coluna de horários */}
+              <div className="flex flex-col">
+                {TIME_SLOTS.map((time) => (
+                  <div
+                    key={time}
+                    className="h-16 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
+                  >
+                    {time}
+                  </div>
+                ))}
+              </div>
+              {/* 7 colunas para os dias */}
+              {Array.from({ length: 7 }).map((_, i) => {
+                const date = addDays(startDate, i);
+                const dateStr = format(date, "yyyy-MM-dd");
+                return (
+                  <div key={i} className="flex flex-col">
+                    {TIME_SLOTS.map((time) => {
+                      const slot = schedule[dateStr]?.[time];
+                      const isBooked = slot?.booked;
+                      return (
+                        <div
+                          key={time}
+                          className={`relative w-full h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium cursor-pointer transition-colors ${
+                            isBooked
+                              ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                          }`}
+                        >
+                          <span
+                            className={`pt-2 text-sm ${
+                              isBooked ? "text-gray-800" : ""
+                            }`}
+                          >
+                            {time}
+                          </span>
+                          {isBooked && (
+                            <span
+                              className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
+                              style={{
+                                wordBreak: "break-word",
+                                whiteSpace: "normal",
+                              }}
+                              title={slot.childName}
+                            >
+                              {slot.childName}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </Modal>
+          {/* Mobile view */}
+          <div className="md:hidden">
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setCurrentDayIndex((prev) => Math.max(0, prev - 1))
+                }
+                disabled={currentDayIndex === 0}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <button
+                onClick={() => setShowWeekCalendarModal(true)}
+                className="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-primary transition-colors"
+              >
+                <Calendar className="h-5 w-5" />
+                {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                  locale: ptBR,
+                })}
+              </button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setCurrentDayIndex((prev) => Math.min(6, prev + 1))
+                }
+                disabled={currentDayIndex === 6}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {(() => {
+                const date = addDays(startDate, currentDayIndex);
+                const dateStr = format(date, "yyyy-MM-dd");
+                return TIME_SLOTS.map((time) => {
+                  const slot = schedule[dateStr]?.[time];
+                  const isBooked = slot?.booked;
+                  return (
+                    <div
+                      key={time}
+                      className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                        isBooked
+                          ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
+                          : "bg-green-100 text-green-700 hover:bg-green-200"
+                      }`}
+                    >
+                      <span
+                        className={`pt-2 text-sm ${
+                          isBooked ? "text-gray-800" : ""
+                        }`}
+                      >
+                        {time}
+                      </span>
+                      {isBooked && (
+                        <span
+                          className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
+                          style={{
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                          }}
+                          title={slot.childName}
+                        >
+                          {slot.childName}
+                        </span>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            {/* Modal de seleção de dia da semana para mobile */}
+            <Modal
+              isOpen={showWeekCalendarModal}
+              onClose={() => setShowWeekCalendarModal(false)}
+              title="Selecione o dia da semana"
+            >
+              <div className="grid grid-cols-4 gap-3">
+                {Array.from({ length: 7 }).map((_, i) => {
+                  const date = addDays(startDate, i);
+                  const isSelected = i === currentDayIndex;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setCurrentDayIndex(i);
+                        setShowWeekCalendarModal(false);
+                      }}
+                      className={`p-6 rounded-lg text-center transition-colors ${
+                        isSelected
+                          ? "bg-primary text-white"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                      }`}
+                    >
+                      <div className="text-[0.6rem] font-medium">
+                        {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
+                      </div>
+                      <div className="text-lg font-bold">
+                        {format(date, "dd")}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Modal>
+          </div>
+        </div>
       </div>
     );
   }
@@ -606,10 +698,9 @@ const SchedulePage: React.FC = () => {
       <div className="flex-grow overflow-y-auto">
         {/* Desktop view */}
         <div className="hidden md:block w-full">
+          {/* Cabeçalho: horários + dias da semana */}
           <div className="grid grid-cols-8 gap-1">
-            {/* Top row for day headers + empty corner */}image.png
-            <div className="col-span-1"></div>{" "}
-            {/* Empty cell for time column header */}
+            <div></div> {/* Empty cell for time column header */}
             {weekDays.map((day, index) => {
               const date = addDays(startDate, index);
               const isToday =
@@ -625,7 +716,10 @@ const SchedulePage: React.FC = () => {
                 </div>
               );
             })}
-            {/* Time labels column */}
+          </div>
+          {/* Grade principal: horários + slots */}
+          <div className="grid grid-cols-8 gap-1">
+            {/* Coluna de horários */}
             <div className="flex flex-col">
               {TIME_SLOTS.map((time) => (
                 <div
@@ -636,15 +730,12 @@ const SchedulePage: React.FC = () => {
                 </div>
               ))}
             </div>
-            {/* Main calendar grid (7 columns for days) */}
+            {/* 7 colunas para os dias */}
             {Array.from({ length: 7 }).map((_, i) => {
               const date = addDays(startDate, i);
               const dateStr = format(date, "yyyy-MM-dd");
               return (
                 <div key={i} className="flex flex-col">
-                  <div className="text-center text-xs text-gray-500 py-1">
-                    {format(date, "dd/MM")}
-                  </div>
                   {TIME_SLOTS.map((time) => {
                     const slot = schedule[dateStr]?.[time];
                     const isBooked = slot?.booked;
@@ -653,7 +744,6 @@ const SchedulePage: React.FC = () => {
                           (child) => String(child.id) === slot?.childId
                         )
                       : false;
-
                     return (
                       <div
                         key={time}
@@ -732,21 +822,14 @@ const SchedulePage: React.FC = () => {
               return TIME_SLOTS.map((time) => {
                 const slot = schedule[dateStr]?.[time];
                 const isBooked = slot?.booked;
-                const isBookedByMyChild = isBooked
-                  ? children.some((child) => String(child.id) === slot?.childId)
-                  : false;
-
                 return (
                   <div
                     key={time}
-                    className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium cursor-pointer transition-colors ${
+                    className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                       isBooked
-                        ? isBookedByMyChild
-                          ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                          : "bg-gray-200 text-gray-600 cursor-not-allowed"
+                        ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                         : "bg-green-100 text-green-700 hover:bg-green-200"
                     }`}
-                    onClick={() => handleSlotClick(dateStr, time)}
                   >
                     <span
                       className={`pt-2 text-sm ${
@@ -772,6 +855,40 @@ const SchedulePage: React.FC = () => {
               });
             })()}
           </div>
+          {/* Modal de seleção de dia da semana para mobile */}
+          <Modal
+            isOpen={showWeekCalendarModal}
+            onClose={() => setShowWeekCalendarModal(false)}
+            title="Selecione o dia da semana"
+          >
+            <div className="grid grid-cols-4 gap-3">
+              {Array.from({ length: 7 }).map((_, i) => {
+                const date = addDays(startDate, i);
+                const isSelected = i === currentDayIndex;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setCurrentDayIndex(i);
+                      setShowWeekCalendarModal(false);
+                    }}
+                    className={`p-6 rounded-lg text-center transition-colors ${
+                      isSelected
+                        ? "bg-primary text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                    }`}
+                  >
+                    <div className="text-[0.6rem] font-medium">
+                      {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
+                    </div>
+                    <div className="text-lg font-bold">
+                      {format(date, "dd")}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Modal>
         </div>
       </div>
 
