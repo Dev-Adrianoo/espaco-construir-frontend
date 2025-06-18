@@ -13,7 +13,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
-import logoEspacoConstruir from "@/images/espaco-construir-logo.jpeg";
+import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 
 // Time slots available for booking
 const TIME_SLOTS = [
