@@ -89,11 +89,14 @@ export default function AuthFlow() {
 
     try {
       localStorage.setItem("userType", localUserTypeSelection || "");
-      await authLogin(email, password);
+      // Mapear o tipo local para o esperado pelo backend
+      let userType = "parent";
+      if (localUserTypeSelection === "PROFESSORA") userType = "teacher";
+      if (localUserTypeSelection === "RESPONSAVEL") userType = "parent";
+      await authLogin(email, password, userType);
     } catch (error) {
       console.error("Authentication failed:", error);
       setError("Email ou senha inválidos. Por favor, tente novamente.");
-      setLocalUserTypeSelection(null); // Reset user type selection on failed login
     }
   };
 

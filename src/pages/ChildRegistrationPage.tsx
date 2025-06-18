@@ -156,9 +156,6 @@ const ChildRegistrationPage: React.FC = () => {
     try {
       await apiService.registerStudent({
         name: formData.name,
-        email: `${formData.name.toLowerCase().replace(/ /g, "")}@example.com`,
-        password: "password123",
-        phone: "11999999999",
         guardianId: Number(loggedGuardianId),
         age: Number(formData.age),
         grade: formData.grade,

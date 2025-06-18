@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, userType: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -104,9 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, userType: string) => {
     try {
-      const response = await apiService.login({ email, password });
+      const response = await apiService.login({ email, password, userType });
 
       if (
         !response.data ||

@@ -61,7 +61,7 @@ api.interceptors.response.use(
 
 export const apiService = {
   // Auth endpoints
-  login: (data: { email: string; password: string }) => 
+  login: (data: { email: string; password: string; userType: string }) => 
     api.post('/auth/login', data),
   
   verifyToken: (token: string) =>
@@ -109,9 +109,9 @@ export const apiService = {
   // Students (Alunos)
   registerStudent: (data: {
     name: string;
-    email: string;
-    password: string;
-    phone: string;
+    email?: string;
+    password?: string;
+    phone?: string;
     guardianId: number;
     age: number;
     grade: string;

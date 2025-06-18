@@ -34,7 +34,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      const response = await apiService.login(formData);
+      const response = await apiService.login({ ...formData, userType });
 
       // Salva o token no localStorage
       localStorage.setItem("token", response.data.token);

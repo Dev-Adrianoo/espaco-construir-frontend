@@ -4,7 +4,7 @@ import Select from "../components/Select";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { apiService, ScheduleDTO } from "../services/api";
 import authService from "../services/authService";
-
+import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 
 interface Child {
   id: number;
@@ -12,14 +12,14 @@ interface Child {
 }
 
 interface Lesson {
-  id: string; 
+  id: string;
   childId: number;
   date: string;
   time: string;
-  status: "attended" | "absent" | "late" | "scheduled" | "in_progress"; 
+  status: "attended" | "absent" | "late" | "scheduled" | "in_progress";
   teacherNotes: string;
-  teacherName: string; 
-  subject: string; 
+  teacherName: string;
+  subject: string;
 }
 
 const HistoryPage: React.FC = () => {
@@ -226,79 +226,110 @@ const HistoryPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              Histórico de Aulas
-            </h1>
-            <p className="mt-1 text-gray-600">
-              Visualize aulas anteriores e anotações dos professores
+    <div className="max-w-6xl mx-auto mt-12">
+      <div className="w-full">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          Histórico de Aulas
+        </h1>
+        <p className="mt-1 text-gray-600 mb-6">
+          Aqui você pode visualizar o histórico de aulas e anotações dos
+          professores referentes aos seus filhos cadastrados.
+        </p>
+        <div className="flex justify-end mb-6">
+          <Select
+            label="Filtrar por filho"
+            id="child-filter"
+            name="child-filter"
+            options={childOptions}
+            value={selectedChild}
+            onChange={(e) => setSelectedChild(e.target.value)}
+            className="mb-0 w-full sm:w-64"
+          />
+        </div>
+        {filteredLessons.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
+            <img
+              src={logoEspacoConstruir}
+              alt="Logo Espaço Construir"
+              style={{ width: 80, marginBottom: 16, borderRadius: 10 }}
+            />
+            <h2 className="text-lg font-bold mb-1">
+              Nenhum histórico encontrado
+            </h2>
+            <p className="text-gray-500 max-w-md text-sm text-center">
+              Nenhuma aula foi registrada ainda para o(s) seu(s) filho(s)
+              selecionado(s).
+              <br />
+              Assim que houver registros, eles aparecerão aqui!
             </p>
           </div>
-          <div className="mt-3 sm:mt-0 w-full sm:w-64">
-            <Select
-              label=""
-              id="child-filter"
-              name="child-filter"
-              options={childOptions}
-              value={selectedChild}
-              onChange={(e) => setSelectedChild(e.target.value)}
-              className="mb-0"
-            />
-          </div>
-        </CardHeader>
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  Histórico de Aulas
+                </h1>
+                <p className="mt-1 text-gray-600">
+                  Visualize aulas anteriores e anotações dos professores
+                </p>
+              </div>
+              <div className="mt-3 sm:mt-0 w-full sm:w-64">
+                <Select
+                  label=""
+                  id="child-filter"
+                  name="child-filter"
+                  options={childOptions}
+                  value={selectedChild}
+                  onChange={(e) => setSelectedChild(e.target.value)}
+                  className="mb-0"
+                />
+              </div>
+            </CardHeader>
 
-        <CardBody>
-          {filteredLessons.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-gray-500">
-                Nenhum histórico de aula disponível para os alunos selecionados.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {filteredLessons.map((lesson) => {
-                const childName =
-                  children.find((c) => c.id === lesson.childId)?.name || "";
+            <CardBody>
+              <div className="space-y-8">
+                {filteredLessons.map((lesson) => {
+                  const childName =
+                    children.find((c) => c.id === lesson.childId)?.name || "";
 
-                return (
-                  <div
-                    key={lesson.id}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex justify-between items-center">
-                      <div className="flex items-center">
-                        {getStatusIcon(lesson.status)}
-                        <span className="ml-2 font-medium text-gray-800">
-                          {childName}
-                        </span>
-                        <span className="mx-2 text-gray-400">•</span>
-                        <span className="text-gray-600">
-                          {formatDate(lesson.date)} às {lesson.time}
-                        </span>
+                  return (
+                    <div
+                      key={lesson.id}
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
+                    >
+                      <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center">
+                          {getStatusIcon(lesson.status)}
+                          <span className="ml-2 font-medium text-gray-800">
+                            {childName}
+                          </span>
+                          <span className="mx-2 text-gray-400">•</span>
+                          <span className="text-gray-600">
+                            {formatDate(lesson.date)} às {lesson.time}
+                          </span>
+                        </div>
+                        <div>{getStatusDisplay(lesson.status)}</div>
                       </div>
-                      <div>{getStatusDisplay(lesson.status)}</div>
-                    </div>
 
-                    <div className="px-4 py-3">
-                      <h3 className="text-sm font-medium text-gray-500 mb-1">
-                        Assunto da Aula: {lesson.subject}
-                      </h3>
-                      <p className="text-gray-800">{lesson.teacherNotes}</p>
-                      <p className="mt-2 text-sm text-gray-500">
-                        <span className="font-medium">Professor:</span>{" "}
-                        {lesson.teacherName}
-                      </p>
+                      <div className="px-4 py-3">
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">
+                          Assunto da Aula: {lesson.subject}
+                        </h3>
+                        <p className="text-gray-800">{lesson.teacherNotes}</p>
+                        <p className="mt-2 text-sm text-gray-500">
+                          <span className="font-medium">Professor:</span>{" "}
+                          {lesson.teacherName}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardBody>
-      </Card>
+                  );
+                })}
+              </div>
+            </CardBody>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
