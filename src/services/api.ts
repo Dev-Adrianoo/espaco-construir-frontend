@@ -162,6 +162,17 @@ export const apiService = {
 
   // Novo endpoint para refresh token
   refreshToken: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
+
+  // Histórico de Aula
+  addStudentHistory: (data: {
+    studentId: string;
+    classId: string | null;
+    teacherId: string;
+    comment: string;
+  }) => api.post('/history', data),
+
+  getStudentHistory: (studentId: string) =>
+    api.get(`/history?studentId=${studentId}`),
 };
 
 export default api;

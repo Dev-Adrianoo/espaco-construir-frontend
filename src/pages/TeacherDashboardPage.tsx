@@ -14,11 +14,14 @@ import {
   MessageSquare,
   Book,
   Plus,
+  MoreHorizontal,
 } from "lucide-react";
 import { apiService } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import Textarea from "../components/Textarea";
+import SuccessModal from "../components/SuccessModal";
 
 // Interface para as classes agendadas no frontend
 interface ScheduledClass {
@@ -70,6 +73,15 @@ const TeacherDashboardPage: React.FC = () => {
   const [dataError, setDataError] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyStudentId, setHistoryStudentId] = useState<string | null>(null);
+  const [historyClassId, setHistoryClassId] = useState<string | null>(null);
+  const [historyText, setHistoryText] = useState("");
+
+  const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     console.log(
@@ -192,6 +204,39 @@ const TeacherDashboardPage: React.FC = () => {
   const handleViewStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
     setShowStudentModal(true);
+  };
+
+  const handleOpenHistory = (studentId: string, classId: string) => {
+    setHistoryStudentId(studentId);
+    setHistoryClassId(classId);
+    setShowHistoryModal(true);
+    setHistoryText("");
+  };
+
+  const handleCloseHistory = () => {
+    setShowHistoryModal(false);
+    setHistoryStudentId(null);
+    setHistoryClassId(null);
+    setHistoryText("");
+  };
+
+  const handleSaveHistory = async () => {
+    try {
+      await apiService.addStudentHistory({
+        studentId: historyStudentId,
+        classId: historyClassId,
+        teacherId: user.id,
+        comment: historyText,
+      });
+      setShowSuccessModal(true);
+      setShowHistoryModal(false);
+      setHistoryStudentId(null);
+      setHistoryClassId(null);
+      setHistoryText("");
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    } catch (err) {
+      // (Opcional) Exibir erro
+    }
   };
 
   const renderWeekCalendar = () => {
@@ -320,10 +365,17 @@ const TeacherDashboardPage: React.FC = () => {
                       ? "bg-blue-200 text-blue-900"
                       : "bg-green-200 text-green-900";
 
+                  // Calcule se a aula já passou
+                  const classDateTime = new Date(
+                    `${scheduledClassItem.date}T${scheduledClassItem.time}`
+                  );
+                  const now = new Date();
+                  const canAddHistory = classDateTime < now;
+
                   return (
                     <div
                       key={scheduledClassItem.id}
-                      className={`bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
+                      className={`bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer w-full sm:w-auto ${
                         selectedClass === scheduledClassItem.id
                           ? "ring-2 ring-[var(--accent)]"
                           : ""
@@ -336,28 +388,110 @@ const TeacherDashboardPage: React.FC = () => {
                         )
                       }
                     >
-                      <div className="border-b border-blue-100 bg-blue-50 px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <User className="h-5 w-5 text-blue-500 mr-2" />
-                          <span className="font-medium text-gray-800">
-                            {scheduledClassItem.studentName}
-                          </span>
-                          <span className="mx-2 text-gray-400">•</span>
-                          <Clock className="h-4 w-4 text-blue-500 mr-1" />
-                          <span className="text-gray-600">
-                            {scheduledClassItem.time} (
-                            {scheduledClassItem.duration} min)
-                          </span>
-                          <span className="mx-2 text-gray-400">•</span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs ${typeColorClass}`}
-                          >
-                            {classTypeString === "online"
-                              ? "Online"
-                              : "Presencial"}
-                          </span>
+                      <div className="border-b border-blue-100 bg-blue-50 px-2 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center w-full">
+                          <div className="flex items-center mb-1 sm:mb-0">
+                            <User className="h-5 w-5 text-blue-500 mr-2" />
+                            <span className="font-medium text-gray-800 text-base sm:text-lg break-words max-w-[120px] sm:max-w-none">
+                              {scheduledClassItem.studentName}
+                            </span>
+                            <span className="mx-2 text-gray-400 hidden sm:inline">
+                              •
+                            </span>
+                          </div>
+                          <div className="flex items-center text-sm sm:text-base">
+                            <Clock className="h-4 w-4 text-blue-500 mr-1" />
+                            <span className="text-gray-600">
+                              {scheduledClassItem.time} (
+                              {scheduledClassItem.duration} min)
+                            </span>
+                            <span className="mx-2 text-gray-400 hidden sm:inline">
+                              •
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs ${typeColorClass}`}
+                            >
+                              {classTypeString === "online"
+                                ? "Online"
+                                : "Presencial"}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
+                        {/* Ações: menu no mobile, ícones no desktop */}
+                        <div className="flex sm:hidden">
+                          <button
+                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                            title="Ações"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowActionsMenu(
+                                showActionsMenu === scheduledClassItem.id
+                                  ? null
+                                  : scheduledClassItem.id
+                              );
+                            }}
+                          >
+                            <MoreHorizontal className="h-5 w-5 text-gray-500" />
+                          </button>
+                          {showActionsMenu === scheduledClassItem.id && (
+                            <div className="absolute z-30 mt-8 right-4 bg-white border rounded shadow-lg flex flex-col min-w-[160px]">
+                              <button
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewStudent(
+                                    scheduledClassItem.studentId
+                                  );
+                                  setShowActionsMenu(null);
+                                }}
+                              >
+                                <FileText className="h-4 w-4 text-gray-500" />{" "}
+                                Ver detalhes
+                              </button>
+                              <button
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowActionsMenu(null);
+                                }}
+                              >
+                                <Edit className="h-4 w-4 text-gray-500" />{" "}
+                                Editar aula
+                              </button>
+                              <button
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowActionsMenu(null);
+                                }}
+                              >
+                                <MessageSquare className="h-4 w-4 text-gray-500" />{" "}
+                                Enviar mensagem
+                              </button>
+                              <button
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenHistory(
+                                    scheduledClassItem.studentId,
+                                    scheduledClassItem.id
+                                  );
+                                  setShowActionsMenu(null);
+                                }}
+                                disabled={!canAddHistory}
+                                title={
+                                  canAddHistory
+                                    ? "Adicionar histórico do aluno"
+                                    : "Só é possível adicionar histórico após a aula"
+                                }
+                              >
+                                <Book className="h-4 w-4 text-gray-500" />{" "}
+                                Adicionar histórico
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="hidden sm:flex space-x-2">
                           <button
                             className="p-1 rounded-full hover:bg-gray-200 transition-colors"
                             title="Ver detalhes do aluno"
@@ -380,6 +514,26 @@ const TeacherDashboardPage: React.FC = () => {
                           >
                             <MessageSquare className="h-5 w-5 text-gray-500" />
                           </button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenHistory(
+                                scheduledClassItem.studentId,
+                                scheduledClassItem.id
+                              );
+                            }}
+                            disabled={!canAddHistory}
+                            title={
+                              canAddHistory
+                                ? "Adicionar histórico do aluno"
+                                : "Só é possível adicionar histórico após a aula"
+                            }
+                          >
+                            Adicionar histórico do aluno
+                          </Button>
                         </div>
                       </div>
                       {selectedClass === scheduledClassItem.id &&
@@ -574,6 +728,37 @@ const TeacherDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {showHistoryModal && historyStudentId && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">
+              Adicionar histórico do aluno
+            </h2>
+            <Textarea
+              label="Comentário sobre a aula"
+              id="history-text"
+              name="history-text"
+              value={historyText}
+              onChange={(e) => setHistoryText(e.target.value)}
+              placeholder="Descreva como foi a aula, observações, evolução, etc..."
+              rows={5}
+            />
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleCloseHistory}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveHistory}>Salvar</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSuccessModal && (
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          message="Histórico salvo com sucesso!"
+        />
       )}
     </div>
   );

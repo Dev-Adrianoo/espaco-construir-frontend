@@ -22,6 +22,15 @@ interface Lesson {
   subject: string;
 }
 
+interface HistoryRecord {
+  id: number | string;
+  studentId: number | string;
+  teacherId: number | string;
+  classId: number | string | null;
+  comment: string;
+  createdAt: string;
+}
+
 const HistoryPage: React.FC = () => {
   const [selectedChild, setSelectedChild] = useState<string>("all");
   const [children, setChildren] = useState<Child[]>([]);
@@ -31,6 +40,37 @@ const HistoryPage: React.FC = () => {
   const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [loadingLessons, setLoadingLessons] = useState<boolean>(true);
   const [lessonsError, setLessonsError] = useState<string | null>(null);
+
+  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const [teachers, setTeachers] = useState<
+    { id: number | string; name: string }[]
+  >([]);
+
+  useEffect(() => {
+    // Carregar filhos do responsável ao montar
+    const fetchChildren = async () => {
+      const userId = authService.getUserId();
+      console.log("userId do responsável:", userId);
+      if (!userId) {
+        setChildren([]);
+        return;
+      }
+      try {
+        const childrenResponse = await apiService.getChildrenByResponsible(
+          Number(userId)
+        );
+        setChildren(childrenResponse.data);
+        console.log("Filhos carregados:", childrenResponse.data);
+      } catch (err) {
+        setChildren([]);
+        console.log("Erro ao buscar filhos:", err);
+      }
+    };
+    fetchChildren();
+  }, []);
 
   useEffect(() => {
     const fetchRequiredData = async () => {
@@ -43,28 +83,12 @@ const HistoryPage: React.FC = () => {
         return;
       }
 
-      // Fetch children
-      let fetchedChildren: Child[] = [];
-      try {
-        setLoadingChildren(true);
-        const childrenResponse = await apiService.getChildrenByResponsible(
-          Number(userId)
-        );
-        fetchedChildren = childrenResponse.data;
-        setChildren(fetchedChildren);
-      } catch (err) {
-        console.error("Erro ao buscar filhos:", err);
-        setChildrenError("Não foi possível carregar os filhos.");
-      } finally {
-        setLoadingChildren(false);
-      }
-
       // Fetch all lessons (schedules) for each child
-      if (fetchedChildren.length > 0) {
+      if (children.length > 0) {
         try {
           setLoadingLessons(true);
           const allSchedules: ScheduleDTO[] = [];
-          for (const child of fetchedChildren) {
+          for (const child of children) {
             const schedulesResponse = await apiService.getSchedulesByStudentId(
               child.id
             );
@@ -123,21 +147,62 @@ const HistoryPage: React.FC = () => {
       }
     };
     fetchRequiredData();
+  }, [children]);
+
+  useEffect(() => {
+    console.log("children:", children);
+    console.log("selectedChild:", selectedChild);
+  }, [children, selectedChild]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoadingHistory(true);
+      setHistoryError(null);
+      try {
+        if (selectedChild !== "all") {
+          const res = await apiService.getStudentHistory(selectedChild);
+          setHistoryRecords(res.data);
+          console.log("Buscando histórico para:", selectedChild, res.data);
+        } else {
+          const allHistory: HistoryRecord[] = [];
+          for (const child of children) {
+            const res = await apiService.getStudentHistory(child.id);
+            allHistory.push(...res.data);
+            console.log("Buscando histórico para:", child.id, res.data);
+          }
+          setHistoryRecords(allHistory);
+          console.log("Todos os históricos:", allHistory);
+        }
+      } catch (err) {
+        setHistoryError("Não foi possível carregar o histórico de aulas.");
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    if (children.length > 0) {
+      fetchHistory();
+    } else {
+      setHistoryRecords([]);
+      setLoadingHistory(false);
+    }
+  }, [selectedChild, children]);
+
+  useEffect(() => {
+    // Carregar professores ao montar
+    const fetchTeachers = async () => {
+      try {
+        const res = await apiService.getTeachers();
+        setTeachers(res.data);
+      } catch (err) {
+        setTeachers([]);
+      }
+    };
+    fetchTeachers();
   }, []);
 
-  const filteredLessons = allLessons.filter((lesson) => {
-    const isResponsibleChild = children.some(
-      (child) => child.id === lesson.childId
-    );
-    if (!isResponsibleChild) {
-      return false;
-    }
-
-    if (selectedChild === "all") {
-      return true;
-    }
-    return String(lesson.childId) === selectedChild;
-  });
+  const filteredHistory = historyRecords.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -211,16 +276,21 @@ const HistoryPage: React.FC = () => {
     })),
   ];
 
-  if (loadingChildren || loadingLessons) {
+  // Remover duplicatas do histórico
+  const uniqueHistory = Array.from(
+    new Map(filteredHistory.map((item) => [item.id, item])).values()
+  );
+
+  if (loadingChildren || loadingHistory) {
     return (
       <p className="text-center text-gray-500 mt-8">Carregando dados...</p>
     );
   }
 
-  if (childrenError || lessonsError) {
+  if (childrenError || historyError) {
     return (
       <p className="text-center text-red-500 mt-8">
-        Erro ao carregar dados: {childrenError || lessonsError}
+        Erro ao carregar dados: {childrenError || historyError}
       </p>
     );
   }
@@ -228,9 +298,7 @@ const HistoryPage: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto mt-12">
       <div className="w-full">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">
-          Histórico de Aulas
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Histórico de Aulas</h1>
         <p className="mt-1 text-gray-600 mb-6">
           Aqui você pode visualizar o histórico de aulas e anotações dos
           professores referentes aos seus filhos cadastrados.
@@ -246,7 +314,7 @@ const HistoryPage: React.FC = () => {
             className="mb-0 w-full sm:w-64"
           />
         </div>
-        {filteredLessons.length === 0 ? (
+        {uniqueHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
             <img
               src={logoEspacoConstruir}
@@ -256,70 +324,60 @@ const HistoryPage: React.FC = () => {
             <h2 className="text-lg font-bold mb-1">
               Nenhum histórico encontrado
             </h2>
-            <p className="text-gray-500 max-w-md text-sm text-center">
-              Nenhuma aula foi registrada ainda para o(s) seu(s) filho(s)
-              selecionado(s).
-              <br />
-              Assim que houver registros, eles aparecerão aqui!
-            </p>
+            {selectedChild === "all" ? (
+              <p className="text-gray-500 max-w-md text-sm text-center">
+                Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s)
+                selecionado(s).
+                <br />
+                Assim que houver registros, eles aparecerão aqui!
+              </p>
+            ) : (
+              <p className="text-gray-500 max-w-md text-sm text-center">
+                O aluno{" "}
+                <b>
+                  {children.find((c) => String(c.id) === String(selectedChild))
+                    ?.name || ""}
+                </b>{" "}
+                ainda não possui histórico registrado.
+              </p>
+            )}
           </div>
         ) : (
           <Card>
-            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  Histórico de Aulas
-                </h1>
-                <p className="mt-1 text-gray-600">
-                  Visualize aulas anteriores e anotações dos professores
-                </p>
-              </div>
-              <div className="mt-3 sm:mt-0 w-full sm:w-64">
-                <Select
-                  label=""
-                  id="child-filter"
-                  name="child-filter"
-                  options={childOptions}
-                  value={selectedChild}
-                  onChange={(e) => setSelectedChild(e.target.value)}
-                  className="mb-0"
-                />
-              </div>
-            </CardHeader>
-
             <CardBody>
               <div className="space-y-8">
-                {filteredLessons.map((lesson) => {
+                {uniqueHistory.map((record) => {
                   const childName =
-                    children.find((c) => c.id === lesson.childId)?.name || "";
-
+                    children.find(
+                      (c) => String(c.id) === String(record.studentId)
+                    )?.name || "";
+                  const teacherName =
+                    teachers.find(
+                      (t) => String(t.id) === String(record.teacherId)
+                    )?.name || "Professor(a)";
                   return (
                     <div
-                      key={lesson.id}
+                      key={record.id}
                       className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                     >
                       <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center">
-                          {getStatusIcon(lesson.status)}
                           <span className="ml-2 font-medium text-gray-800">
                             {childName}
                           </span>
                           <span className="mx-2 text-gray-400">•</span>
                           <span className="text-gray-600">
-                            {formatDate(lesson.date)} às {lesson.time}
+                            {new Date(record.createdAt).toLocaleString("pt-BR")}
                           </span>
                         </div>
-                        <div>{getStatusDisplay(lesson.status)}</div>
                       </div>
-
                       <div className="px-4 py-3">
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">
-                          Assunto da Aula: {lesson.subject}
-                        </h3>
-                        <p className="text-gray-800">{lesson.teacherNotes}</p>
+                        <p className="text-gray-800 whitespace-pre-line">
+                          {record.comment}
+                        </p>
                         <p className="mt-2 text-sm text-gray-500">
-                          <span className="font-medium">Professor:</span>{" "}
-                          {lesson.teacherName}
+                          <span className="font-medium">Professor(a):</span>{" "}
+                          {teacherName}
                         </p>
                       </div>
                     </div>

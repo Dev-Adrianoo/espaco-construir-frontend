@@ -1,0 +1,67 @@
+# Instruções para Implementação do Histórico de Aula no Backend
+
+## 1. Criar uma tabela/modelo de histórico de aula
+
+Exemplo de campos:
+- id (chave primária)
+- studentId (referência ao aluno)
+- classId (referência à aula, se aplicável)
+- teacherId (referência à professora)
+- comment (texto do histórico/comentário)
+- createdAt (data/hora do registro)
+
+---
+
+## 2. Criar endpoint para salvar o histórico
+
+- **Rota:** POST /api/history
+- **Body esperado:**
+  ```json
+  {
+    "studentId": "string",
+    "classId": "string",
+    "teacherId": "string",
+    "comment": "string"
+  }
+  ```
+- **Ação:** Salvar o comentário/histórico no banco de dados, associando ao aluno, aula e professora.
+
+---
+
+## 3. Criar endpoint para buscar históricos
+
+- **Rota:** GET /api/history?studentId=...
+- **Ação:** Retornar todos os históricos/comentários daquele aluno, ordenados do mais recente para o mais antigo.
+- **(Opcional)** Permitir filtro por data, por aula, etc.
+
+**Exemplo de resposta:**
+```json
+[
+  {
+    "id": "1",
+    "studentId": "123",
+    "teacherId": "456",
+    "classId": "789",
+    "comment": "Aluno foi muito bem na aula de hoje.",
+    "createdAt": "2024-06-18T15:40:00Z"
+  }
+]
+```
+
+---
+
+## 4. Permitir que o front-end consuma esses endpoints
+
+- O front-end da professora irá chamar o POST /api/history ao salvar um novo histórico.
+- O front-end do responsável irá chamar o GET /api/history?studentId=... para exibir os históricos.
+
+---
+
+## Resumo para o dev back-end
+
+- [ ] Criar tabela/modelo de histórico de aula.
+- [ ] Implementar endpoint POST /api/history para salvar histórico.
+- [ ] Implementar endpoint GET /api/history?studentId=... para listar históricos do aluno.
+- [ ] Garantir que o front-end consiga consumir esses endpoints.
+
+Se precisar de um exemplo de model (Sequelize, Prisma, Mongoose, etc) ou de rotas (Express, Fastify, etc), só avisar! 
