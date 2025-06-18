@@ -13,6 +13,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
+import logoEspacoConstruir from "@/images/espaco-construir-logo.jpeg";
 
 // Time slots available for booking
 const TIME_SLOTS = [
@@ -427,9 +428,25 @@ const SchedulePage: React.FC = () => {
 
   if (user?.role === "RESPONSAVEL" && children.length === 0) {
     return (
-      <div>
-        Nenhum filho cadastrado
-        {/* ... */}
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+        <img
+          src={logoEspacoConstruir}
+          alt="Logo Espaço Construir"
+          style={{ width: 120, marginBottom: 20, borderRadius: 12 }}
+        />
+        <h2 className="text-2xl font-bold mb-2">
+          Você ainda não cadastrou nenhum filho
+        </h2>
+        <p className="text-gray-600 mb-4 max-w-md">
+          Para agendar uma aula, é necessário cadastrar pelo menos um filho.
+          Clique no botão abaixo para cadastrar agora mesmo!
+        </p>
+        <button
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition-colors"
+          onClick={() => (window.location.href = "/children")}
+        >
+          Cadastrar Filho
+        </button>
       </div>
     );
   }
