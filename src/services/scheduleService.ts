@@ -66,7 +66,7 @@ const scheduleService = {
 
   async getSchedulesWithStudents(): Promise<{ dia: string; hora: string; alunos: string[] }[]> {
     const response = await api.get<{ dia: string; hora: string; alunos: string[] }[]>(
-      '/api/schedules/with-students'
+      '/schedules/with-students'
     );
     return response.data;
   }

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
-import Select from "../components/Select";
 import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
@@ -103,7 +102,7 @@ const SchedulePage: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [childrenError, setChildrenError] = useState<string | null>(null);
-  const [selectedChild, setSelectedChild] = useState<string>("");
+  const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: string;
@@ -130,125 +129,131 @@ const SchedulePage: React.FC = () => {
   >([]);
   const [modalAlunos, setModalAlunos] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    const fetchAllData = async () => {
-      if (!user) return;
-      // --- Lógica para RESPONSÁVEL ---
-      if (user.role === "RESPONSAVEL") {
-        const responsavelId = user.id;
-        let fetchedChildren: Child[] = [];
-        try {
-          setLoadingChildren(true);
-          const response = await apiService.getChildrenByResponsible(
-            Number(responsavelId)
-          );
-          const formattedChildren = response.data.map((child: ApiChild) => ({
-            ...child,
-            id: String(child.id),
-          }));
-          setChildren(formattedChildren);
-          setSelectedChild("");
-          fetchedChildren = formattedChildren;
-        } catch (err) {
-          const error = err as AxiosError<{ message: string }>;
-          setChildrenError(
-            error.response?.data?.message || "Erro ao carregar seus filhos."
-          );
-        } finally {
-          setLoadingChildren(false);
-        }
+  const [showSlotActionModal, setShowSlotActionModal] = useState(false);
+  const [slotActionData, setSlotActionData] = useState<{
+    date: string;
+    time: string;
+    scheduleId: number;
+    childName: string;
+    filhosNaoAgendados: Child[];
+  } | null>(null);
 
-        try {
-          setLoadingTeachers(true);
-          const teachersResponse = await apiService.getTeachers();
-          setTeachers(teachersResponse.data);
-          if (teachersResponse.data.length > 0) {
-            setSelectedTeacherId(String(teachersResponse.data[0].id));
-          }
-        } catch (err) {
-          const error = err as AxiosError<{ message: string }>;
-          setTeachersError(
-            error.response?.data?.message || "Erro ao carregar professoras."
-          );
-        } finally {
-          setLoadingTeachers(false);
-        }
-        if (fetchedChildren.length > 0) {
-          try {
-            setLoadingSchedule(true);
-            const currentWeekSchedule: ScheduleType = { ...initialSchedule };
-            for (const child of fetchedChildren) {
-              const schedulesResponse =
-                await apiService.getSchedulesByStudentId(Number(child.id));
-              schedulesResponse.data.forEach((scheduleItem: ScheduleDTO) => {
-                const startTime = parseISO(scheduleItem.startTime);
-                const dateStr = format(startTime, "yyyy-MM-dd");
-                const timeStr = format(startTime, "HH:mm");
-                if (
-                  currentWeekSchedule[dateStr] &&
-                  currentWeekSchedule[dateStr][timeStr]
-                ) {
-                  currentWeekSchedule[dateStr][timeStr] = {
-                    childId: String(scheduleItem.studentId),
-                    childName: child.name,
-                    booked: true,
-                    scheduleId: scheduleItem.id,
-                  };
-                }
-              });
-            }
-            setSchedule(currentWeekSchedule);
-          } catch {
-            setScheduleError("Não foi possível carregar os agendamentos.");
-          } finally {
-            setLoadingSchedule(false);
-          }
-        } else {
-          setLoadingSchedule(false);
-          setSchedule(initialSchedule);
-        }
+  const fetchSchedule = async () => {
+    if (!user) return;
+    if (user.role === "RESPONSAVEL") {
+      const responsavelId = user.id;
+      let fetchedChildren: Child[] = [];
+      try {
+        setLoadingChildren(true);
+        const response = await apiService.getChildrenByResponsible(
+          Number(responsavelId)
+        );
+        const formattedChildren = response.data.map((child: ApiChild) => ({
+          ...child,
+          id: String(child.id),
+        }));
+        setChildren(formattedChildren);
+        setSelectedChildren([]);
+        fetchedChildren = formattedChildren;
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setChildrenError(
+          error.response?.data?.message || "Erro ao carregar seus filhos."
+        );
+      } finally {
+        setLoadingChildren(false);
       }
-      // --- Lógica para PROFESSORA ---
-      else if (user.role === "PROFESSORA") {
+
+      try {
+        setLoadingTeachers(true);
+        const teachersResponse = await apiService.getTeachers();
+        setTeachers(teachersResponse.data);
+        if (teachersResponse.data.length > 0) {
+          setSelectedTeacherId(String(teachersResponse.data[0].id));
+        }
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setTeachersError(
+          error.response?.data?.message || "Erro ao carregar professoras."
+        );
+      } finally {
+        setLoadingTeachers(false);
+      }
+      if (fetchedChildren.length > 0) {
         try {
           setLoadingSchedule(true);
-          // Busca todos os horários com alunos agendados
-          const horariosResponse =
-            await scheduleService.getSchedulesWithStudents();
-          setHorariosComAlunos(horariosResponse);
-          // Busca todos os agendamentos da escola
-          const schedulesResponse = await apiService.getAllSchedules();
           const currentWeekSchedule: ScheduleType = { ...initialSchedule };
-          schedulesResponse.data.forEach((scheduleItem: ScheduleDTO) => {
-            const startTime = parseISO(scheduleItem.startTime);
-            const dateStr = format(startTime, "yyyy-MM-dd");
-            const timeStr = format(startTime, "HH:mm");
-            if (
-              currentWeekSchedule[dateStr] &&
-              currentWeekSchedule[dateStr][timeStr]
-            ) {
-              currentWeekSchedule[dateStr][timeStr] = {
-                childId: String(scheduleItem.studentId),
-                childName:
-                  scheduleItem.studentName || String(scheduleItem.studentId),
-                booked: true,
-                scheduleId: scheduleItem.id,
-              };
-            }
-          });
+          for (const child of fetchedChildren) {
+            const schedulesResponse = await apiService.getSchedulesByStudentId(
+              Number(child.id)
+            );
+            schedulesResponse.data.forEach((scheduleItem: ScheduleDTO) => {
+              const startTime = parseISO(scheduleItem.startTime);
+              const dateStr = format(startTime, "yyyy-MM-dd");
+              const timeStr = format(startTime, "HH:mm");
+              if (
+                currentWeekSchedule[dateStr] &&
+                currentWeekSchedule[dateStr][timeStr]
+              ) {
+                currentWeekSchedule[dateStr][timeStr] = {
+                  childId: String(scheduleItem.studentId),
+                  childName: child.name,
+                  booked: true,
+                  scheduleId: scheduleItem.id,
+                };
+              }
+            });
+          }
           setSchedule(currentWeekSchedule);
-          setLoadingChildren(false);
-          setLoadingTeachers(false);
         } catch {
-          setScheduleError(
-            "Não foi possível carregar os agendamentos da escola."
-          );
+          setScheduleError("Não foi possível carregar os agendamentos.");
         } finally {
           setLoadingSchedule(false);
         }
+      } else {
+        setLoadingSchedule(false);
+        setSchedule(initialSchedule);
       }
-    };
-    fetchAllData();
+    } else if (user.role === "PROFESSORA") {
+      try {
+        setLoadingSchedule(true);
+        const horariosResponse =
+          await scheduleService.getSchedulesWithStudents();
+        setHorariosComAlunos(horariosResponse);
+        const schedulesResponse = await apiService.getAllSchedules();
+        const currentWeekSchedule: ScheduleType = { ...initialSchedule };
+        schedulesResponse.data.forEach((scheduleItem: ScheduleDTO) => {
+          const startTime = parseISO(scheduleItem.startTime);
+          const dateStr = format(startTime, "yyyy-MM-dd");
+          const timeStr = format(startTime, "HH:mm");
+          if (
+            currentWeekSchedule[dateStr] &&
+            currentWeekSchedule[dateStr][timeStr]
+          ) {
+            currentWeekSchedule[dateStr][timeStr] = {
+              childId: String(scheduleItem.studentId),
+              childName:
+                scheduleItem.studentName || String(scheduleItem.studentId),
+              booked: true,
+              scheduleId: scheduleItem.id,
+            };
+          }
+        });
+        setSchedule(currentWeekSchedule);
+        setLoadingChildren(false);
+        setLoadingTeachers(false);
+      } catch {
+        setScheduleError(
+          "Não foi possível carregar os agendamentos da escola."
+        );
+      } finally {
+        setLoadingSchedule(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedule();
   }, [user]);
 
   // Handle slot click
@@ -273,40 +278,28 @@ const SchedulePage: React.FC = () => {
         (child) => String(child.id) === currentSlot.childId
       );
 
+      // Verificar todos os filhos já agendados nesse slot
+      const filhosJaAgendados: string[] = [];
+      if (
+        schedule[date] &&
+        schedule[date][time] &&
+        schedule[date][time].booked
+      ) {
+        filhosJaAgendados.push(schedule[date][time].childId);
+      }
+      const meusFilhosNaoAgendados = children.filter(
+        (child) => !filhosJaAgendados.includes(child.id)
+      );
+
       if (isBookedByMyChild && currentSlot.scheduleId) {
-        toast(
-          (t) => (
-            <div className="flex flex-col items-center p-4">
-              <p className="text-lg font-semibold mb-4 text-center">
-                Cancelar a aula para {currentSlot.childName}?
-              </p>
-              <div className="flex space-x-4">
-                <button
-                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                  onClick={() => {
-                    handleCancelBooking(date, time, currentSlot.scheduleId!);
-                    toast.dismiss(t.id);
-                  }}
-                >
-                  Sim, cancelar
-                </button>
-                <button
-                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
-                  onClick={() => toast.dismiss(t.id)}
-                >
-                  Não, manter
-                </button>
-              </div>
-            </div>
-          ),
-          {
-            duration: Infinity,
-            style: {
-              background: "#fff",
-              color: "#000",
-            },
-          }
-        );
+        setSlotActionData({
+          date,
+          time,
+          scheduleId: currentSlot.scheduleId,
+          childName: currentSlot.childName,
+          filhosNaoAgendados: meusFilhosNaoAgendados,
+        });
+        setShowSlotActionModal(true);
       } else if (!isBookedByMyChild) {
         toast.error(`Este horário já está reservado por outro aluno.`);
       }
@@ -318,62 +311,47 @@ const SchedulePage: React.FC = () => {
 
   // Handle booking confirmation
   const handleConfirmBooking = async () => {
-    if (!selectedSlot || !selectedChild || !selectedTeacherId) {
-      console.log("Slot, aluno ou professor não selecionado:", {
-        selectedSlot,
-        selectedChild,
-        selectedTeacherId,
-      });
-      toast.error("Por favor, selecione um slot, aluno e professor.");
-      return;
-    }
-
-    const { date, time } = selectedSlot;
-    const selectedChildData = children.find(
-      (child) => child.id === selectedChild
-    );
-    const guardianId = authService.getUserId();
-
-    if (!selectedChildData || !guardianId) {
+    if (!selectedSlot || selectedChildren.length === 0 || !selectedTeacherId) {
       toast.error(
-        "Erro: Por favor, selecione um aluno válido e certifique-se de estar logado."
+        "Por favor, selecione um slot, pelo menos um aluno e professor."
       );
       return;
     }
 
+    const { date, time } = selectedSlot;
+    const guardianId = authService.getUserId();
+    if (!guardianId) {
+      toast.error("Erro: Certifique-se de estar logado.");
+      return;
+    }
+
     try {
-      const response = await apiService.bookClass({
+      // Garante que studentIds são IDs de alunos (Student), vindos de children
+      const studentIds = selectedChildren
+        .map((id) => children.find((child) => child.id === id))
+        .filter((child) => !!child)
+        .map((child) => Number(child!.id));
+      // Pega dados do primeiro aluno só para difficulties/condition (ajuste se necessário)
+      const firstChild = children.find(
+        (child) => child.id === selectedChildren[0]
+      );
+      await apiService.bookClass({
+        studentIds,
         date,
         time,
-        childId: selectedChildData.id,
-        childName: selectedChildData.name,
         modality: "IN_PERSON",
         guardianId: guardianId,
         teacherId: Number(selectedTeacherId),
-        difficulties: selectedChildData.difficulties,
-        condition: selectedChildData.condition,
-      });
-
-      setSchedule((prev) => {
-        const newSchedule = {
-          ...prev,
-          [date]: {
-            ...prev[date],
-            [time]: {
-              childId: selectedChildData.id,
-              childName: selectedChildData.name,
-              booked: true,
-              scheduleId: response.data.id,
-            },
-          },
-        };
-        return newSchedule;
+        difficulties: firstChild?.difficulties || "",
+        condition: firstChild?.condition || "",
       });
 
       toast.success("Aula agendada com sucesso!");
       setShowBookingModal(false);
       setSelectedSlot(null);
-      setSelectedChild("");
+      setSelectedChildren([]);
+
+      await fetchSchedule();
     } catch {
       setScheduleError("Não foi possível agendar aula.");
     }
@@ -406,11 +384,7 @@ const SchedulePage: React.FC = () => {
   const handleModalClose = () => {
     setShowBookingModal(false);
     setSelectedSlot(null);
-    setSelectedChild("");
-  };
-
-  const handleChildChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedChild(e.target.value);
+    setSelectedChildren([]);
   };
 
   const handleTeacherChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -546,15 +520,23 @@ const SchedulePage: React.FC = () => {
               {Array.from({ length: 7 }).map((_, i) => {
                 const date = addDays(startDate, i);
                 const dateStr = format(date, "yyyy-MM-dd");
-                // Busca os alunos agendados para este dia e horário
-                const alunosSlot =
-                  horariosComAlunos.find(
-                    (h) => h.dia === dateStr && h.hora === TIME_SLOTS[i]
-                  )?.alunos || [];
-                const isBooked = alunosSlot.length > 0;
                 return (
                   <div key={i} className="flex flex-col">
                     {TIME_SLOTS.map((time) => {
+                      const alunosSlot =
+                        horariosComAlunos.find(
+                          (h) => h.dia === dateStr && h.hora === time
+                        )?.alunos || [];
+                      const isBooked = alunosSlot.length > 0;
+                      // Debug: log para ver os dados de cada slot
+                      console.log(
+                        "Slot:",
+                        time,
+                        "Alunos:",
+                        alunosSlot,
+                        "Meus filhos:",
+                        children.map((c) => c.name)
+                      );
                       return (
                         <div
                           key={time}
@@ -563,6 +545,10 @@ const SchedulePage: React.FC = () => {
                               ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                               : "bg-green-100 text-green-700 hover:bg-green-200"
                           }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSlotClick(dateStr, time);
+                          }}
                         >
                           <span
                             className={`pt-2 text-sm ${
@@ -579,11 +565,34 @@ const SchedulePage: React.FC = () => {
                                 whiteSpace: "normal",
                               }}
                             >
-                              {alunosSlot.slice(0, 3).join(", ")}
+                              {alunosSlot.length > 0 &&
+                                alunosSlot.map((nome, idx) => {
+                                  const isMeuFilho = children.some(
+                                    (child) =>
+                                      child.name.trim().toLowerCase() ===
+                                      nome.trim().toLowerCase()
+                                  );
+                                  return (
+                                    <span
+                                      key={idx}
+                                      style={{
+                                        fontWeight: isMeuFilho
+                                          ? "bold"
+                                          : "normal",
+                                      }}
+                                    >
+                                      {nome}
+                                      {idx < alunosSlot.length - 1 ? ", " : ""}
+                                    </span>
+                                  );
+                                })}
                               {alunosSlot.length > 3 && (
                                 <button
                                   className="ml-1 underline"
-                                  onClick={() => setModalAlunos(alunosSlot)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModalAlunos(alunosSlot);
+                                  }}
                                   title="Ver todos"
                                 >
                                   ...
@@ -645,7 +654,10 @@ const SchedulePage: React.FC = () => {
                           ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                           : "bg-green-100 text-green-700 hover:bg-green-200"
                       }`}
-                      onClick={() => handleSlotClick(dateStr, time)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSlotClick(dateStr, time);
+                      }}
                     >
                       <span
                         className={`pt-2 text-sm ${
@@ -654,14 +666,13 @@ const SchedulePage: React.FC = () => {
                       >
                         {time}
                       </span>
-                      {isBooked && (
+                      {isBooked && slot.childName && (
                         <span
                           className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
                           style={{
                             wordBreak: "break-word",
                             whiteSpace: "normal",
                           }}
-                          title={slot.childName}
                         >
                           {slot.childName}
                         </span>
@@ -760,24 +771,21 @@ const SchedulePage: React.FC = () => {
               return (
                 <div key={i} className="flex flex-col">
                   {TIME_SLOTS.map((time) => {
+                    // Para responsáveis, mostrar o nome do aluno agendado
                     const slot = schedule[dateStr]?.[time];
                     const isBooked = slot?.booked;
-                    const isBookedByMyChild = isBooked
-                      ? children.some(
-                          (child) => String(child.id) === slot?.childId
-                        )
-                      : false;
                     return (
                       <div
                         key={time}
                         className={`relative w-full h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium cursor-pointer transition-colors ${
                           isBooked
-                            ? isBookedByMyChild
-                              ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                              : "bg-gray-200 text-gray-600 cursor-not-allowed"
+                            ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                             : "bg-green-100 text-green-700 hover:bg-green-200"
                         }`}
-                        onClick={() => handleSlotClick(dateStr, time)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSlotClick(dateStr, time);
+                        }}
                       >
                         <span
                           className={`pt-2 text-sm ${
@@ -786,14 +794,13 @@ const SchedulePage: React.FC = () => {
                         >
                           {time}
                         </span>
-                        {isBooked && (
+                        {isBooked && slot.childName && (
                           <span
                             className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
                             style={{
                               wordBreak: "break-word",
                               whiteSpace: "normal",
                             }}
-                            title={slot.childName}
                           >
                             {slot.childName}
                           </span>
@@ -843,6 +850,7 @@ const SchedulePage: React.FC = () => {
               const date = addDays(startDate, currentDayIndex);
               const dateStr = format(date, "yyyy-MM-dd");
               return TIME_SLOTS.map((time) => {
+                // Para responsáveis, mostrar o nome do aluno agendado
                 const slot = schedule[dateStr]?.[time];
                 const isBooked = slot?.booked;
                 return (
@@ -853,7 +861,10 @@ const SchedulePage: React.FC = () => {
                         ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                         : "bg-green-100 text-green-700 hover:bg-green-200"
                     }`}
-                    onClick={() => handleSlotClick(dateStr, time)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSlotClick(dateStr, time);
+                    }}
                   >
                     <span
                       className={`pt-2 text-sm ${
@@ -862,14 +873,13 @@ const SchedulePage: React.FC = () => {
                     >
                       {time}
                     </span>
-                    {isBooked && (
+                    {isBooked && slot.childName && (
                       <span
                         className="w-full px-2 py-1 rounded-full text-sm mb-2 bg-blue-500 text-white text-center break-words"
                         style={{
                           wordBreak: "break-word",
                           whiteSpace: "normal",
                         }}
-                        title={slot.childName}
                       >
                         {slot.childName}
                       </span>
@@ -917,57 +927,113 @@ const SchedulePage: React.FC = () => {
       </div>
 
       {/* Booking Modal */}
-      <Modal
-        isOpen={showBookingModal}
-        onClose={handleModalClose}
-        title="Confirmar Agendamento"
-      >
+      <Modal isOpen={showBookingModal} onClose={handleModalClose} title={null}>
         {selectedSlot && (
-          <div className="space-y-4">
-            <p className="text-gray-700">
+          <div className="space-y-6 p-2 md:p-4">
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
+              Confirmar Agendamento
+            </h2>
+            <p className="text-center text-gray-600 mb-4">
               Você está prestes a agendar uma aula para:
             </p>
-            <p className="text-lg font-semibold text-gray-800">
-              Data:{" "}
-              {format(parseISO(selectedSlot.date), "dd/MM/yyyy", {
-                locale: ptBR,
-              })}
-            </p>
-            <p className="text-lg font-semibold text-gray-800">
-              Horário: {selectedSlot.time}
-            </p>
+            <div className="flex flex-col md:flex-row md:space-x-8 md:justify-center mb-2">
+              <div className="mb-2 md:mb-0">
+                <span className="block text-sm text-gray-500">Data:</span>
+                <span className="text-lg font-semibold text-gray-800">
+                  {format(parseISO(selectedSlot.date), "dd/MM/yyyy", {
+                    locale: ptBR,
+                  })}
+                </span>
+              </div>
+              <div>
+                <span className="block text-sm text-gray-500">Horário:</span>
+                <span className="text-lg font-semibold text-gray-800">
+                  {selectedSlot.time}
+                </span>
+              </div>
+            </div>
 
-            <Select
-              label="Para qual filho?"
-              id="child-select"
-              name="child-select"
-              options={children.map((child) => ({
-                value: child.id,
-                label: child.name,
-              }))}
-              value={selectedChild}
-              onChange={handleChildChange}
-              placeholder="Selecione um filho"
-              required
-            />
+            <div className="mb-4">
+              <label
+                htmlFor="child-select"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Para quais filhos?
+              </label>
+              <select
+                id="child-select"
+                name="child-select"
+                multiple
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-h-[70px]"
+                value={selectedChildren}
+                onChange={(e) => {
+                  const options = Array.from(e.target.selectedOptions).map(
+                    (opt) => opt.value
+                  );
+                  setSelectedChildren(options);
+                }}
+                required
+              >
+                {(() => {
+                  if (selectedSlot) {
+                    const filhosJaAgendados: string[] = Object.values(
+                      schedule[selectedSlot.date] || {}
+                    )
+                      .filter((slot) => slot.booked)
+                      .map((slot) => slot.childId);
+                    return children
+                      .filter((child) => !filhosJaAgendados.includes(child.id))
+                      .map((child) => (
+                        <option key={child.id} value={child.id}>
+                          {child.name}
+                        </option>
+                      ));
+                  }
+                  return children.map((child) => (
+                    <option key={child.id} value={child.id}>
+                      {child.name}
+                    </option>
+                  ));
+                })()}
+              </select>
+              <span className="text-xs text-gray-500 block mt-1">
+                Segure <b>Ctrl</b> (Windows) ou <b>Command</b> (Mac) para
+                selecionar mais de um.
+              </span>
+            </div>
 
-            <Select
-              label="Com qual professora?"
-              id="teacher-select"
-              name="teacher-select"
-              options={teachers.map((teacher) => ({
-                value: String(teacher.id),
-                label: teacher.name,
-              }))}
-              value={selectedTeacherId || ""}
-              onChange={handleTeacherChange}
-              placeholder="Selecione uma professora"
-              required
-            />
+            <div className="mb-4">
+              <label
+                htmlFor="teacher-select"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Com qual professora?
+              </label>
+              <select
+                id="teacher-select"
+                name="teacher-select"
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                value={String(selectedTeacherId ?? "")}
+                onChange={handleTeacherChange}
+                required
+              >
+                <option value="" disabled>
+                  Selecione uma professora
+                </option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={String(teacher.id)}>
+                    {teacher.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <Button onClick={handleConfirmBooking} className="w-full">
+            <button
+              onClick={handleConfirmBooking}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-lg shadow-md mt-2"
+            >
               Confirmar Agendamento
-            </Button>
+            </button>
           </div>
         )}
       </Modal>
@@ -989,6 +1055,58 @@ const SchedulePage: React.FC = () => {
           >
             Fechar
           </button>
+        </Modal>
+      )}
+
+      {showSlotActionModal && slotActionData && (
+        <Modal
+          isOpen={showSlotActionModal}
+          onClose={() => setShowSlotActionModal(false)}
+          title={`Cancelar a aula para ${slotActionData.childName}?`}
+        >
+          <div className="flex flex-col items-center p-4">
+            <div className="flex space-x-4 mb-2">
+              <button
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                onClick={() => {
+                  handleCancelBooking(
+                    slotActionData.date,
+                    slotActionData.time,
+                    slotActionData.scheduleId
+                  );
+                  setShowSlotActionModal(false);
+                }}
+              >
+                Sim, cancelar
+              </button>
+              <button
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
+                onClick={() => setShowSlotActionModal(false)}
+              >
+                Não, manter
+              </button>
+            </div>
+            {slotActionData.filhosNaoAgendados.length > 0 ? (
+              <button
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors w-full"
+                onClick={() => {
+                  setSelectedSlot({
+                    date: slotActionData.date,
+                    time: slotActionData.time,
+                  });
+                  setSelectedChildren([]);
+                  setShowBookingModal(true);
+                  setShowSlotActionModal(false);
+                }}
+              >
+                Adicionar outro filho a esta aula
+              </button>
+            ) : (
+              <span className="text-xs text-gray-500 mt-2">
+                Todos os seus filhos já estão agendados neste horário.
+              </span>
+            )}
+          </div>
         </Modal>
       )}
     </div>

@@ -145,8 +145,7 @@ export const apiService = {
   getCurrentGuardian: () => api.get('/guardians/me'),
   getCurrentTeacher: () => api.get('/teachers/me'),
 
-  bookClass: (data: { date: string; time: string; childId: string; childName: string; modality: string; guardianId: string; teacherId: number }) =>
-    api.post<ScheduleDTO>('/schedules/book', data),
+  bookClass: (payload: BookClassPayload) => api.post('/schedules/book', payload),
 
   getSchedulesByStudentId: (studentId: number) => 
     api.get<ScheduleDTO[]>(`/schedules/student/${studentId}`),
@@ -211,4 +210,15 @@ export interface TeacherDetails {
   email: string;
   phone: string;
   cnpj: string;
+}
+
+export interface BookClassPayload {
+  studentIds: number[];
+  date: string;
+  time: string;
+  modality: string;
+  guardianId: string;
+  teacherId: number;
+  difficulties?: string;
+  condition?: string;
 } 
