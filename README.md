@@ -1,5 +1,9 @@
 # Espaço Construir Frontend
-atualizacao no modal
+
+## Visão Geral
+
+Este projeto é o frontend do sistema Espaço Construir, uma plataforma para agendamento de aulas, gerenciamento de alunos e acompanhamento de históricos, voltada para professores e responsáveis (pais/guardians).
+
 ## Requisitos
 
 - Node.js (versão 18.x ou superior)
@@ -48,15 +52,17 @@ atualizacao no modal
 
 ```
 espaco-construir-frontend/
-├── src/                    # Código fonte
-│   ├── components/         # Componentes reutilizáveis
-│   ├── layouts/           # Layouts da aplicação
-│   ├── pages/             # Páginas da aplicação
-│   ├── services/          # Serviços e integrações
-│   ├── App.tsx           # Componente principal
-│   ├── index.css         # Estilos globais
-│   ├── main.tsx          # Ponto de entrada da aplicação
-│   └── vite-env.d.ts     # Tipos do ambiente Vite
+├── src/
+│   ├── components/         # Componentes reutilizáveis (Button, Card, Modal, Input, etc.)
+│   ├── layouts/            # Layouts globais (MainLayout)
+│   ├── pages/              # Páginas principais (Login, Dashboard, Agendamento, etc.)
+│   ├── services/           # Serviços de integração com backend (api, authService, studentService, scheduleService)
+│   ├── contexts/           # Contextos globais (AuthContext)
+│   ├── images/             # Imagens e logos
+│   ├── App.tsx             # Componente principal e roteamento
+│   ├── index.css           # Estilos globais
+│   ├── main.tsx            # Ponto de entrada
+│   └── vite-env.d.ts       # Tipos do ambiente Vite
 ├── public/                 # Arquivos estáticos
 ├── node_modules/          # Dependências
 ├── .git/                  # Configuração do Git
@@ -72,36 +78,63 @@ espaco-construir-frontend/
 └── eslint.config.js      # Configuração do ESLint
 ```
 
-## Configuração do Ambiente de Desenvolvimento
+## Fluxo de Autenticação e Contexto
 
-O projeto utiliza várias ferramentas de desenvolvimento:
+- O contexto de autenticação (`AuthContext`) gerencia o estado global do usuário, token, login/logout e persistência no `localStorage`.
+- O login e registro são realizados via modais, com diferenciação de fluxo para professores (`PROFESSORA`) e responsáveis (`RESPONSAVEL`).
+- O token é validado e renovado automaticamente via refresh token, garantindo sessões seguras.
+- O contexto expõe métodos para login, logout e verifica o papel do usuário para navegação condicional.
 
-- **TypeScript**: Para tipagem estática
-- **ESLint**: Para linting e formatação de código
-- **TailwindCSS**: Para estilização
-- **PostCSS**: Para processamento de CSS
-- **Vite**: Para build e desenvolvimento
+## Roteamento e Proteção de Rotas
 
-## Dependências Principais
+- O roteamento é feito em `App.tsx` usando `react-router-dom`.
+- Rotas públicas: `/` (login/registro), `/login` (redireciona para `/`).
+- Rotas protegidas para professores:
+  - `/teacher-dashboard` — Painel do Professor
+  - `/students` — Gerenciamento de alunos
+  - `/manage-schedule` — Agenda semanal
+  - `/register-teacher` — Cadastro de professor
+- Rotas protegidas para responsáveis:
+  - `/children` — Dashboard de filhos
+  - `/schedule` — Agendamento de aulas
+  - `/history` — Histórico de aulas
+  - `/register-responsible` — Cadastro de responsável
+- Qualquer rota não reconhecida redireciona para `/`.
+- O componente `ProtectedRoute` garante que apenas usuários autenticados e com o papel correto acessem as rotas.
 
-### Dependências de Produção
+## Integração com Backend
 
-- `react` e `react-dom`: Framework principal
-- `react-router-dom`: Roteamento
-- `axios`: Cliente HTTP
-- `date-fns`: Manipulação de datas
-- `framer-motion`: Animações
-- `lucide-react`: Ícones
+- Toda comunicação com o backend é feita via `services/api.ts` (Axios), com interceptadores para autenticação e renovação de token.
+- Serviços específicos:
+  - `authService`: login, registro, logout, verificação de autenticação.
+  - `studentService`: CRUD de alunos.
+  - `scheduleService`: agendamento, consulta e cancelamento de aulas.
+- O backend espera tokens JWT e diferencia usuários por papel (`PROFESSORA`, `RESPONSAVEL`).
 
-### Dependências de Desenvolvimento
+## Componentes Principais
 
-- `typescript`: Suporte a TypeScript
-- `vite`: Build tool
-- `tailwindcss`: Framework CSS
-- `eslint`: Linting
-- `postcss`: Processamento de CSS
+- **Button, Input, Select, Textarea, MaskedInput**: componentes de formulário reutilizáveis.
+- **Modal, SuccessModal, ErrorModal**: modais para feedback e formulários.
+- **LoadingSpinner**: indicador de carregamento.
+- **Card, ChildrenList**: exibição de dados em cards e listas.
+- **ProtectedRoute**: wrapper para rotas protegidas.
 
-## Contribuindo
+## Layout e Navegação
+
+- O `MainLayout` define a navegação principal, com menus dinâmicos conforme o tipo de usuário.
+- O layout é responsivo, com navegação lateral em desktop e menu mobile.
+- O rodapé exibe informações institucionais.
+
+## Funcionalidades Principais
+
+- **Autenticação mock**: login/registro com persistência local.
+- **Dashboard do Professor**: agenda semanal, gerenciamento de alunos, histórico de aulas.
+- **Dashboard do Responsável**: cadastro/listagem de filhos, agendamento, histórico.
+- **Agendamento de Aulas**: tabela semanal, seleção de horários, status visual.
+- **Histórico de Aulas**: visualização de presença, ausência, atrasos e anotações.
+- **Acessibilidade e UX**: feedback visual, tabelas responsivas, mensagens de orientação.
+
+## Como Contribuir
 
 1. Faça um fork do projeto
 2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
@@ -112,42 +145,3 @@ O projeto utiliza várias ferramentas de desenvolvimento:
 ## Suporte
 
 Em caso de dúvidas ou problemas, por favor abra uma issue no repositório.
-
-## Rotas da Aplicação
-
-A aplicação possui rotas protegidas e públicas, com navegação diferenciada para professores e responsáveis (pais).
-
-### Fluxo de Autenticação
-
-- `/` — Tela inicial de login e seleção de tipo de usuário (professor ou responsável)
-- `/login` — Redireciona para `/`
-
-### Rotas para Professores
-
-- `/teacher-dashboard` — Painel do Professor: visão geral da agenda, alunos e aulas do dia
-- `/students` — Gerenciamento de alunos (cadastro e listagem)
-- `/manage-schedule` — Agenda semanal para professores (visualização e gerenciamento de horários)
-- `/register-teacher` — Cadastro de novo professor
-
-### Rotas para Responsáveis (Pais)
-
-- `/children` — Dashboard de filhos: cadastro e listagem de filhos
-- `/schedule` — Agendar Aula: visualização de horários disponíveis e agendamento de aulas
-- `/history` — Histórico de aulas dos filhos
-- `/register-responsible` — Cadastro de novo responsável
-
-### Outras rotas
-
-- `*` — Qualquer rota não reconhecida redireciona para `/`
-
----
-
-## Funcionalidades Principais
-
-- **Autenticação mock**: Login e registro via modal, com persistência de tipo de usuário e ID no localStorage
-- **Dashboard do Professor**: Visualização de agenda semanal, gerenciamento de alunos, detalhes de cada aluno
-- **Dashboard do Responsável**: Cadastro e listagem de filhos, agendamento de aulas, histórico de aulas
-- **Agendamento de Aulas**: Tabela moderna, responsiva, com horários customizáveis e status visual
-- **Histórico de Aulas**: Visualização de presença, ausência e atrasos, com anotações do professor
-- **Identidade Visual**: Paleta de cores alinhada ao logo, componentes modernos com TailwindCSS
-- **Acessibilidade e UX**: Mensagens de orientação, tabelas responsivas, feedback visual em botões e status
