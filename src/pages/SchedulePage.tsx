@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
+import scheduleService from "../services/scheduleService";
 
 // Time slots available for booking
 const TIME_SLOTS = [
@@ -124,6 +125,11 @@ const SchedulePage: React.FC = () => {
 
   const [showWeekCalendarModal, setShowWeekCalendarModal] = useState(false);
 
+  const [horariosComAlunos, setHorariosComAlunos] = useState<
+    { dia: string; hora: string; alunos: string[] }[]
+  >([]);
+  const [modalAlunos, setModalAlunos] = useState<string[] | null>(null);
+
   useEffect(() => {
     const fetchAllData = async () => {
       if (!user) return;
@@ -206,6 +212,10 @@ const SchedulePage: React.FC = () => {
       else if (user.role === "PROFESSORA") {
         try {
           setLoadingSchedule(true);
+          // Busca todos os horários com alunos agendados
+          const horariosResponse =
+            await scheduleService.getSchedulesWithStudents();
+          setHorariosComAlunos(horariosResponse);
           // Busca todos os agendamentos da escola
           const schedulesResponse = await apiService.getAllSchedules();
           const currentWeekSchedule: ScheduleType = { ...initialSchedule };
@@ -536,11 +546,15 @@ const SchedulePage: React.FC = () => {
               {Array.from({ length: 7 }).map((_, i) => {
                 const date = addDays(startDate, i);
                 const dateStr = format(date, "yyyy-MM-dd");
+                // Busca os alunos agendados para este dia e horário
+                const alunosSlot =
+                  horariosComAlunos.find(
+                    (h) => h.dia === dateStr && h.hora === TIME_SLOTS[i]
+                  )?.alunos || [];
+                const isBooked = alunosSlot.length > 0;
                 return (
                   <div key={i} className="flex flex-col">
                     {TIME_SLOTS.map((time) => {
-                      const slot = schedule[dateStr]?.[time];
-                      const isBooked = slot?.booked;
                       return (
                         <div
                           key={time}
@@ -564,9 +578,17 @@ const SchedulePage: React.FC = () => {
                                 wordBreak: "break-word",
                                 whiteSpace: "normal",
                               }}
-                              title={slot.childName}
                             >
-                              {slot.childName}
+                              {alunosSlot.slice(0, 3).join(", ")}
+                              {alunosSlot.length > 3 && (
+                                <button
+                                  className="ml-1 underline"
+                                  onClick={() => setModalAlunos(alunosSlot)}
+                                  title="Ver todos"
+                                >
+                                  ...
+                                </button>
+                              )}
                             </span>
                           )}
                         </div>
@@ -623,6 +645,7 @@ const SchedulePage: React.FC = () => {
                           ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                           : "bg-green-100 text-green-700 hover:bg-green-200"
                       }`}
+                      onClick={() => handleSlotClick(dateStr, time)}
                     >
                       <span
                         className={`pt-2 text-sm ${
@@ -830,6 +853,7 @@ const SchedulePage: React.FC = () => {
                         ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
                         : "bg-green-100 text-green-700 hover:bg-green-200"
                     }`}
+                    onClick={() => handleSlotClick(dateStr, time)}
                   >
                     <span
                       className={`pt-2 text-sm ${
@@ -947,6 +971,26 @@ const SchedulePage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {modalAlunos && (
+        <Modal
+          isOpen={!!modalAlunos}
+          onClose={() => setModalAlunos(null)}
+          title="Alunos agendados"
+        >
+          <ul>
+            {modalAlunos.map((nome, idx) => (
+              <li key={idx}>{nome}</li>
+            ))}
+          </ul>
+          <button
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+            onClick={() => setModalAlunos(null)}
+          >
+            Fechar
+          </button>
+        </Modal>
+      )}
     </div>
   );
 };

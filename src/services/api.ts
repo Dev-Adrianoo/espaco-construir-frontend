@@ -45,7 +45,7 @@ api.interceptors.response.use(
           }
         }
       } catch {
-        // Se não conseguir renovar o token, faz logout
+
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
@@ -60,14 +60,14 @@ api.interceptors.response.use(
 );
 
 export const apiService = {
-  // Auth endpoints
+
   login: (data: { email: string; password: string; userType: string }) => 
     api.post('/auth/login', data),
   
   verifyToken: (token: string) =>
     api.post('/auth/verify', { token }),
 
-  // Guardians (Responsáveis)
+
   registerResponsible: (data: {
     name: string;
     email: string;
