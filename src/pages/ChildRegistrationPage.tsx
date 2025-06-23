@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
@@ -8,7 +8,7 @@ import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { AuthContext } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 interface Child {
@@ -36,7 +36,7 @@ const gradeOptions = [
 ];
 
 const ChildRegistrationPage: React.FC = () => {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     age: "",

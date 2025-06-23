@@ -240,29 +240,24 @@ const SchedulePage: React.FC = () => {
   }, []);
 
   // Função utilitária para pegar todos os alunos agendados em um slot (ajustada para considerar todos os slots daquele horário)
-  function getAlunosAgendados(date: string, time: string): string[] {
+  function getAlunosAgendados(date: string, time: string): { alunos: string[], totalDoDia: number } {
     // Se não tiver dados, retorna array vazio
-
     if (!horariosComAlunos || !Array.isArray(horariosComAlunos)) {
       console.log('Sem horários:', horariosComAlunos);
-      return [];
-          }
-
-    // Busca o agendamento específico para o dia e hora
-    const agendamento = horariosComAlunos.find(h => {
-      const match = h.dia === date && h.hora === time;
-      if (match) {
-        console.log('Encontrou agendamento:', h);
-      }
-      return match;
-    });
-    
-    // Se não encontrou ou não tem alunos, retorna array vazio
-    if (!agendamento?.alunos) {
-      return [];
+      return { alunos: [], totalDoDia: 0 };
     }
 
-    return agendamento.alunos;
+    // Encontra os alunos para este horário específico
+    const alunosDoHorario = horariosComAlunos
+      .filter(horario => horario.dia === date && horario.hora === time)
+      .flatMap(horario => horario.alunos);
+
+    // Calcula o total de agendamentos do dia
+    const totalDoDia = horariosComAlunos
+      .filter(horario => horario.dia === date)
+      .reduce((total, horario) => total + horario.alunos.length, 0);
+
+    return { alunos: alunosDoHorario, totalDoDia };
   }
 
   // Adiciona useEffect para monitorar mudanças nos agendamentos
@@ -292,7 +287,7 @@ const SchedulePage: React.FC = () => {
       return;
     }
 
-    const alunosAgendados = getAlunosAgendados(date, time);
+    const { alunos: alunosAgendados, totalDoDia } = getAlunosAgendados(date, time);
     const isBooked = alunosAgendados.length > 0;
 
     if (isBooked) {
@@ -326,7 +321,7 @@ const SchedulePage: React.FC = () => {
       const alunosJaAgendados = getAlunosAgendados(date, time);
       const studentIds = selectedChildren
         .map((id) => children.find((child) => child.id === id))
-        .filter((child) => !!child && !alunosJaAgendados.includes(child!.name))
+        .filter((child) => !!child && !alunosJaAgendados.alunos.includes(child!.name))
         .map((child) => Number(child!.id));
 
       if (studentIds.length === 0) {
@@ -543,7 +538,7 @@ const SchedulePage: React.FC = () => {
                 {TIME_SLOTS.map((time) => (
                   <div
                     key={time}
-                    className="h-16 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
+                    className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
                   >
                     {time}
                   </div>
@@ -556,12 +551,12 @@ const SchedulePage: React.FC = () => {
                 return (
                   <div key={i} className="flex flex-col">
                     {TIME_SLOTS.map((time) => {
-                      const alunosAgendados = getAlunosAgendados(dateStr, time);
+                      const { alunos: alunosAgendados, totalDoDia } = getAlunosAgendados(dateStr, time);
                       const isBooked = alunosAgendados.length > 0;
                       return (
                         <div
                           key={time}
-                          className={`relative w-full h-20 sm:h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                          className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                             isBooked
                               ? "bg-blue-50 hover:bg-blue-100"
                               : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
@@ -574,7 +569,7 @@ const SchedulePage: React.FC = () => {
                           <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
                             {time}
                           </span>
-                          {isBooked && (
+                          {isBooked ? (
                             <span
                               className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
                               style={{ wordBreak: "break-word", whiteSpace: "normal" }}
@@ -615,6 +610,10 @@ const SchedulePage: React.FC = () => {
                                   </button>
                                 </div>
                               )}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-800 font-medium mb-2">
+                              {totalDoDia < 10 ? `${totalDoDia} agendamentos hoje` : "Dia disponível"}
                             </span>
                           )}
                         </div>
@@ -661,12 +660,12 @@ const SchedulePage: React.FC = () => {
                 const date = addDays(startDate, currentDayIndex);
                 const dateStr = format(date, "yyyy-MM-dd");
                 return TIME_SLOTS.map((time) => {
-                  const alunosAgendados = getAlunosAgendados(dateStr, time);
+                  const { alunos: alunosAgendados, totalDoDia } = getAlunosAgendados(dateStr, time);
                   const isBooked = alunosAgendados.length > 0;
                   return (
                     <div
                       key={time}
-                      className={`relative w-full h-20 sm:h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                      className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                         isBooked
                           ? "bg-blue-50 hover:bg-blue-100"
                           : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
@@ -679,7 +678,7 @@ const SchedulePage: React.FC = () => {
                       <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
                         {time}
                       </span>
-                      {isBooked && (
+                      {isBooked ? (
                         <span
                           className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
                           style={{ wordBreak: "break-word", whiteSpace: "normal" }}
@@ -720,6 +719,10 @@ const SchedulePage: React.FC = () => {
                               </button>
                             </div>
                           )}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-800 font-medium mb-2">
+                          {totalDoDia < 10 ? `${totalDoDia} agendamentos hoje` : "Dia disponível"}
                         </span>
                       )}
                     </div>
@@ -803,7 +806,7 @@ const SchedulePage: React.FC = () => {
               {TIME_SLOTS.map((time) => (
                 <div
                   key={time}
-                  className="h-16 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
+                  className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
                 >
                   {time}
                 </div>
@@ -816,12 +819,12 @@ const SchedulePage: React.FC = () => {
               return (
                 <div key={i} className="flex flex-col">
                   {TIME_SLOTS.map((time) => {
-                    const alunosAgendados = getAlunosAgendados(dateStr, time);
+                    const { alunos: alunosAgendados, totalDoDia } = getAlunosAgendados(dateStr, time);
                     const isBooked = alunosAgendados.length > 0;
                     return (
                       <div
                         key={time}
-                        className={`relative w-full h-20 sm:h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                        className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                           isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
@@ -834,7 +837,7 @@ const SchedulePage: React.FC = () => {
                         <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
                           {time}
                         </span>
-                        {isBooked && (
+                        {isBooked ? (
                           <span
                             className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
                             style={{ wordBreak: "break-word", whiteSpace: "normal" }}
@@ -875,6 +878,10 @@ const SchedulePage: React.FC = () => {
                                 </button>
                               </div>
                             )}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-800 font-medium mb-2">
+                            {totalDoDia < 10 ? `${totalDoDia} agendamentos hoje` : "Dia disponível"}
                           </span>
                         )}
                       </div>
@@ -922,12 +929,12 @@ const SchedulePage: React.FC = () => {
               const date = addDays(startDate, currentDayIndex);
               const dateStr = format(date, "yyyy-MM-dd");
               return TIME_SLOTS.map((time) => {
-                const alunosAgendados = getAlunosAgendados(dateStr, time);
+                const { alunos: alunosAgendados, totalDoDia } = getAlunosAgendados(dateStr, time);
                 const isBooked = alunosAgendados.length > 0;
                 return (
                   <div
                     key={time}
-                    className={`relative w-full h-20 sm:h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                    className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                       isBooked
                         ? "bg-blue-50 hover:bg-blue-100"
                         : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
@@ -940,7 +947,7 @@ const SchedulePage: React.FC = () => {
                     <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
                       {time}
                     </span>
-                    {isBooked && (
+                    {isBooked ? (
                       <span
                         className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
                         style={{ wordBreak: "break-word", whiteSpace: "normal" }}
@@ -981,6 +988,10 @@ const SchedulePage: React.FC = () => {
                             </button>
                           </div>
                         )}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-800 font-medium mb-2">
+                        {totalDoDia < 10 ? `${totalDoDia} agendamentos hoje` : "Dia disponível"}
                       </span>
                     )}
                   </div>
@@ -1079,7 +1090,7 @@ const SchedulePage: React.FC = () => {
                 {(() => {
                   if (selectedSlot) {
                     // Busca todos os filhos já agendados para aquele dia/horário
-                    const filhosJaAgendados: string[] = getAlunosAgendados(selectedSlot.date, selectedSlot.time).map(nome => {
+                    const filhosJaAgendados: string[] = getAlunosAgendados(selectedSlot.date, selectedSlot.time).alunos.map(nome => {
                       // Busca o id do filho pelo nome
                       const found = children.find(child => child.name === nome);
                       return found ? found.id : null;
