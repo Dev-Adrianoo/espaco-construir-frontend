@@ -65,10 +65,43 @@ const scheduleService = {
   },
 
   async getSchedulesWithStudents(): Promise<{ dia: string; hora: string; alunos: string[] }[]> {
-    const response = await api.get<{ dia: string; hora: string; alunos: string[] }[]>(
-      '/schedules/with-students'
-    );
-    return response.data;
+    try {
+      // Primeiro, vamos pegar todos os agendamentos
+      const response = await api.get('/schedules');
+      console.log('Resposta dos agendamentos:', response.data);
+
+      // Vamos transformar os dados no formato que precisamos
+      const agendamentos = response.data || [];
+      const horariosAgrupados = agendamentos.reduce((acc: any[], agendamento: any) => {
+        const dia = agendamento.startTime.split('T')[0];
+        const hora = agendamento.startTime.split('T')[1].substring(0, 5);
+        
+        // Procura se já existe um horário para este dia/hora
+        const horarioExistente = acc.find(h => h.dia === dia && h.hora === hora);
+        
+        if (horarioExistente) {
+          // Se existe, adiciona o aluno à lista
+          if (agendamento.studentName && !horarioExistente.alunos.includes(agendamento.studentName)) {
+            horarioExistente.alunos.push(agendamento.studentName);
+          }
+        } else {
+          // Se não existe, cria um novo horário
+          acc.push({
+            dia,
+            hora,
+            alunos: agendamento.studentName ? [agendamento.studentName] : []
+          });
+        }
+        
+        return acc;
+      }, []);
+
+      console.log('Horários agrupados:', horariosAgrupados);
+      return horariosAgrupados;
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+      return [];
+    }
   }
 };
 

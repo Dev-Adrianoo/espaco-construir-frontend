@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
@@ -8,6 +8,8 @@ import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { AuthContext } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface Child {
   id: string;
@@ -34,6 +36,7 @@ const gradeOptions = [
 ];
 
 const ChildRegistrationPage: React.FC = () => {
+  const { user } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -63,6 +66,8 @@ const ChildRegistrationPage: React.FC = () => {
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(
     null
   );
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchLoggedGuardian = async () => {
@@ -227,169 +232,208 @@ const ChildRegistrationPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div className="p-4 sm:p-6 lg:p-8 bg-white shadow-md rounded-lg mb-8 lg:mb-0">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Cadastrar Aluno
-        </h1>
-        <p className="mt-1 text-gray-600 mb-6">
-          Por favor, forneça informações sobre o aluno para ajudar a
-          personalizar a experiência de tutoria.
-        </p>
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {user?.role === "RESPONSAVEL" ? "Cadastrar Filho" : "Cadastrar Aluno"}
+          </h1>
+          
+          <p className="text-gray-600 mb-6">
+            {user?.role === "RESPONSAVEL" 
+              ? "Por favor, forneça informações sobre seu filho para ajudar a personalizar a experiência de tutoria."
+              : "Por favor, forneça informações sobre o aluno para ajudar a personalizar a experiência de tutoria."
+            }
+          </p>
 
-        {submissionStatus === "loading" && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-600">Cadastrando aluno...</p>
-          </div>
-        )}
-        {submissionStatus === "success" && submissionMessage && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">{submissionMessage}</p>
-          </div>
-        )}
-        {submissionStatus === "error" && submissionMessage && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{submissionMessage}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input
-              label="Nome Completo do Aluno"
-              id="name"
-              name="name"
-              placeholder="Digite o nome do aluno"
-              value={formData.name}
-              onChange={handleChange}
-              required
-            />
-
-            <Input
-              label="Idade"
-              id="age"
-              name="age"
-              type="number"
-              placeholder="Digite a idade do aluno"
-              value={formData.age}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <Select
-            label="Série Escolar"
-            id="grade"
-            name="grade"
-            options={gradeOptions}
-            value={formData.grade}
-            onChange={handleChange}
-            placeholder="Selecione a série"
-            required
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Textarea
-              label="Dificuldades de Aprendizagem (se houver)"
-              id="difficulties"
-              name="difficulties"
-              placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
-              value={formData.difficulties}
-              onChange={handleChange}
-            />
-
-            <Textarea
-              label="Condição Pessoal"
-              id="condition"
-              name="condition"
-              placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
-              value={formData.condition}
-              onChange={handleChange}
-            />
-          </div>
-
-          <Input
-            label="Responsável"
-            id="parent"
-            name="parent"
-            value={loggedGuardianName || ""}
-            disabled
-            readOnly
-            required
-          />
-
-          <div className="space-y-2">
-            <p className="block text-sm font-medium text-gray-700">
-              Tipo de Aula
-            </p>
-            <div className="flex space-x-6">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio h-4 w-4 text-indigo-600"
-                  name="classType"
-                  value="online"
-                  checked={formData.classType === "online"}
-                  onChange={handleRadioChange}
-                />
-                <span className="ml-2 text-sm text-gray-700">Online</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio h-4 w-4 text-indigo-600"
-                  name="classType"
-                  value="in-person"
-                  checked={formData.classType === "in-person"}
-                  onChange={handleRadioChange}
-                />
-                <span className="ml-2 text-sm text-gray-700">Presencial</span>
-              </label>
+          {submissionStatus === "loading" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-600">Cadastrando aluno...</p>
             </div>
-          </div>
+          )}
+          {submissionStatus === "success" && submissionMessage && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-600">{submissionMessage}</p>
+            </div>
+          )}
+          {submissionStatus === "error" && submissionMessage && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{submissionMessage}</p>
+            </div>
+          )}
 
-          <Button type="submit" disabled={submissionStatus === "loading"}>
-            {submissionStatus === "loading" ? "Cadastrando..." : "Cadastrar"}
-          </Button>
-        </form>
-      </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {user?.role === "RESPONSAVEL" ? "Nome Completo do Filho" : "Nome Completo do Aluno"} *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder={user?.role === "RESPONSAVEL" ? "Digite o nome do seu filho" : "Digite o nome do aluno"}
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
 
-      <div className="p-4 sm:p-6 lg:p-8 bg-white shadow-md rounded-lg">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Filhos Cadastrados
-        </h2>
-        {children.length > 0 ? (
-          <div className="flex flex-col gap-4">
-            {children.map((child) => (
-              <div
-                key={child.id}
-                className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Idade *
+              </label>
+              <input
+                type="number"
+                value={formData.age}
+                onChange={handleChange}
+                placeholder="Digite a idade"
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Série Escolar *
+              </label>
+              <select
+                value={formData.grade}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
               >
-                <div>
-                  <p className="font-semibold text-lg text-gray-800 mb-1">
-                    {child.name}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {child.age} anos,{" "}
-                    {child.grade === "kindergarten"
-                      ? "Educação Infantil"
-                      : `${child.grade}º ano`}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="primary" size="sm">
-                    Editar
-                  </Button>
-                  <Button variant="danger" size="sm">
-                    Excluir
-                  </Button>
-                </div>
+                <option value="">Selecione a série</option>
+                <option value="kindergarten">Educação Infantil</option>
+                <option value="1st">1º ano</option>
+                <option value="2nd">2º ano</option>
+                <option value="3rd">3º ano</option>
+                <option value="4th">4º ano</option>
+                <option value="5th">5º ano</option>
+                <option value="6th">6º ano</option>
+                <option value="7th">7º ano</option>
+                <option value="8th">8º ano</option>
+                <option value="9th">9º ano</option>
+                <option value="10th">1º ano do Ensino Médio</option>
+                <option value="11th">2º ano do Ensino Médio</option>
+                <option value="12th">3º ano do Ensino Médio</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Dificuldades de Aprendizagem (se houver)
+              </label>
+              <textarea
+                value={formData.difficulties}
+                onChange={handleChange}
+                placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Condição Pessoal
+              </label>
+              <textarea
+                value={formData.condition}
+                onChange={handleChange}
+                placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="block text-sm font-medium text-gray-700">
+                Tipo de Aula
+              </p>
+              <div className="flex space-x-6">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio h-4 w-4 text-indigo-600"
+                    name="classType"
+                    value="online"
+                    checked={formData.classType === "online"}
+                    onChange={handleRadioChange}
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Online</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio h-4 w-4 text-indigo-600"
+                    name="classType"
+                    value="in-person"
+                    checked={formData.classType === "in-person"}
+                    onChange={handleRadioChange}
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Presencial</span>
+                </label>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-600">Nenhum filho cadastrado ainda.</p>
-        )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={submissionStatus === "loading"}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
+              >
+                {submissionStatus === "loading" ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Cadastrando...</span>
+                  </>
+                ) : (
+                  <span>Cadastrar</span>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {children.length > 0 && (
+            <div className="mt-4 p-3 bg-white rounded-md">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                Filhos Cadastrados
+              </h2>
+              <div className="flex flex-col gap-4">
+                {children.map((child) => (
+                  <div
+                    key={child.id}
+                    className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md"
+                  >
+                    <div>
+                      <p className="font-semibold text-lg text-gray-800 mb-1">
+                        {child.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {child.age} anos,{" "}
+                        {child.grade === "kindergarten"
+                          ? "Educação Infantil"
+                          : `${child.grade}º ano`}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button variant="primary" size="sm">
+                        Editar
+                      </Button>
+                      <Button variant="danger" size="sm">
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { apiService, ScheduleDTO } from "../services/api";
 import authService from "../services/authService";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 interface Child {
   id: number;
@@ -283,69 +284,171 @@ const HistoryPage: React.FC = () => {
 
   if (loadingChildren || loadingHistory) {
     return (
-      <p className="text-center text-gray-500 mt-8">Carregando dados...</p>
-    );
-  }
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
+          
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+            <p className="text-gray-600 mb-6">
+              Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
+            </p>
 
-  if (childrenError || historyError) {
-    return (
-      <p className="text-center text-red-500 mt-8">
-        Erro ao carregar dados: {childrenError || historyError}
-      </p>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="filterChild" className="block text-sm font-medium text-gray-700 mb-2">
+                  Filtrar por filho
+                </label>
+                <select
+                  id="filterChild"
+                  value={selectedChild || ""}
+                  onChange={(e) => setSelectedChild(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todos os Alunos</option>
+                  {children.map(child => (
+                    <option key={child.id} value={child.id}>
+                      {child.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {loadingHistory ? (
+                <div className="flex justify-center items-center py-12">
+                  <LoadingSpinner />
+                </div>
+              ) : historyError ? (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-red-600">Erro ao carregar histórico. Tente novamente mais tarde.</p>
+                </div>
+              ) : historyRecords.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-24 h-24 mx-auto mb-4">
+                    <img
+                      src="/src/images/espaco-construir-logo.jpeg"
+                      alt="Espaço Construir"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Nenhum histórico encontrado
+                  </h3>
+                  <p className="text-gray-500 mb-2">
+                    Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s) selecionado(s).
+                  </p>
+                  <p className="text-gray-500">
+                    Assim que houver registros, eles aparecerão aqui!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {uniqueHistory.map((record) => {
+                    const childName =
+                      children.find(
+                        (c) => String(c.id) === String(record.studentId)
+                      )?.name || "";
+                    const teacherName =
+                      teachers.find(
+                        (t) => String(t.id) === String(record.teacherId)
+                      )?.name || "Professor(a)";
+                    return (
+                      <div
+                        key={record.id}
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
+                          <div className="mb-2 sm:mb-0">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {childName}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              Professor(a): {teacherName}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <span>{formatDate(record.createdAt)}</span>
+                            <span>•</span>
+                            <span>{record.comment}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white rounded p-3 border border-gray-100">
+                          <h4 className="font-medium text-gray-700 mb-2">Anotações:</h4>
+                          <p className="text-gray-600 whitespace-pre-wrap">
+                            {record.comment}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto mt-12">
-      <div className="w-full">
-        <h1 className="text-2xl font-bold text-gray-800">Histórico de Aulas</h1>
-        <p className="mt-1 text-gray-600 mb-6">
-          Aqui você pode visualizar o histórico de aulas e anotações dos
-          professores referentes aos seus filhos cadastrados.
-        </p>
-        <div className="flex justify-end mb-6">
-          <Select
-            label="Filtrar por filho"
-            id="child-filter"
-            name="child-filter"
-            options={childOptions}
-            value={selectedChild}
-            onChange={(e) => setSelectedChild(e.target.value)}
-            className="mb-0 w-full sm:w-64"
-          />
-        </div>
-        {uniqueHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
-            <img
-              src={logoEspacoConstruir}
-              alt="Logo Espaço Construir"
-              style={{ width: 80, marginBottom: 16, borderRadius: 10 }}
-            />
-            <h2 className="text-lg font-bold mb-1">
-              Nenhum histórico encontrado
-            </h2>
-            {selectedChild === "all" ? (
-              <p className="text-gray-500 max-w-md text-sm text-center">
-                Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s)
-                selecionado(s).
-                <br />
-                Assim que houver registros, eles aparecerão aqui!
-              </p>
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
+        
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <p className="text-gray-600 mb-6">
+            Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="filterChild" className="block text-sm font-medium text-gray-700 mb-2">
+                Filtrar por filho
+              </label>
+              <select
+                id="filterChild"
+                value={selectedChild || ""}
+                onChange={(e) => setSelectedChild(e.target.value)}
+                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todos os Alunos</option>
+                {children.map(child => (
+                  <option key={child.id} value={child.id}>
+                    {child.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex justify-center items-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : historyError ? (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <p className="text-red-600">Erro ao carregar histórico. Tente novamente mais tarde.</p>
+              </div>
+            ) : historyRecords.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 mx-auto mb-4">
+                  <img
+                    src="/src/images/espaco-construir-logo.jpeg"
+                    alt="Espaço Construir"
+                    className="w-full h-full object-contain rounded-full"
+                  />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Nenhum histórico encontrado
+                </h3>
+                <p className="text-gray-500 mb-2">
+                  Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s) selecionado(s).
+                </p>
+                <p className="text-gray-500">
+                  Assim que houver registros, eles aparecerão aqui!
+                </p>
+              </div>
             ) : (
-              <p className="text-gray-500 max-w-md text-sm text-center">
-                O aluno{" "}
-                <b>
-                  {children.find((c) => String(c.id) === String(selectedChild))
-                    ?.name || ""}
-                </b>{" "}
-                ainda não possui histórico registrado.
-              </p>
-            )}
-          </div>
-        ) : (
-          <Card>
-            <CardBody>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 {uniqueHistory.map((record) => {
                   const childName =
                     children.find(
@@ -358,35 +461,37 @@ const HistoryPage: React.FC = () => {
                   return (
                     <div
                       key={record.id}
-                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200"
                     >
-                      <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <span className="ml-2 font-medium text-gray-800">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
+                        <div className="mb-2 sm:mb-0">
+                          <h3 className="text-lg font-medium text-gray-900">
                             {childName}
-                          </span>
-                          <span className="mx-2 text-gray-400">•</span>
-                          <span className="text-gray-600">
-                            {new Date(record.createdAt).toLocaleString("pt-BR")}
-                          </span>
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            Professor(a): {teacherName}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>{formatDate(record.createdAt)}</span>
+                          <span>•</span>
+                          <span>{record.comment}</span>
                         </div>
                       </div>
-                      <div className="px-4 py-3">
-                        <p className="text-gray-800 whitespace-pre-line">
+                      
+                      <div className="bg-white rounded p-3 border border-gray-100">
+                        <h4 className="font-medium text-gray-700 mb-2">Anotações:</h4>
+                        <p className="text-gray-600 whitespace-pre-wrap">
                           {record.comment}
-                        </p>
-                        <p className="mt-2 text-sm text-gray-500">
-                          <span className="font-medium">Professor(a):</span>{" "}
-                          {teacherName}
                         </p>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </CardBody>
-          </Card>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
