@@ -25,6 +25,12 @@ const gradeOptions = [
   { value: "4th", label: "4º ano" },
   { value: "5th", label: "5º ano" },
   { value: "6th", label: "6º ano" },
+  { value: "7th", label: "7º ano" },
+  { value: "8th", label: "8º ano" },
+  { value: "9th", label: "9º ano" },
+  { value: "10th", label: "1º ano do Ensino Médio" },
+  { value: "11th", label: "2º ano do Ensino Médio" },
+  { value: "12th", label: "3º ano do Ensino Médio" },
 ];
 
 const ChildRegistrationPage: React.FC = () => {

@@ -10,11 +10,9 @@ import {
   Phone,
   User,
   FileText,
-  Edit,
   MessageSquare,
   Book,
   Plus,
-  MoreHorizontal,
 } from "lucide-react";
 import { apiService } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -23,11 +21,13 @@ import { useAuth } from "../contexts/AuthContext";
 import Textarea from "../components/Textarea";
 import SuccessModal from "../components/SuccessModal";
 
-// Interface para as classes agendadas no frontend
+// Interface para as aulas agendadas (incluindo dados basicos do aluno para exibicao rapida)
 interface ScheduledClass {
   id: string;
-  studentId: string; // ID do aluno (string)
+  studentId: string;
   studentName: string;
+  age: number;
+  grade: string;
   date: string;
   time: string;
   duration: number;
@@ -40,7 +40,7 @@ interface ScheduledClass {
   condition: string;
 }
 
-// Interface para os detalhes do aluno (TeacherStudent do backend)
+// Interface para os detalhes completos do aluno (TeacherStudent do backend)
 interface StudentDetails {
   id: string;
   name: string;
@@ -58,11 +58,6 @@ const TeacherDashboardPage: React.FC = () => {
   const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [showStudentModal, setShowStudentModal] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
-    null
-  );
 
   // Novos estados para dados reais e carregamento
   const [teacherSchedules, setTeacherSchedules] = useState<ScheduledClass[]>(
@@ -79,9 +74,10 @@ const TeacherDashboardPage: React.FC = () => {
   const [historyClassId, setHistoryClassId] = useState<string | null>(null);
   const [historyText, setHistoryText] = useState("");
 
-  const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
-
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const [studentDetailsModalData, setStudentDetailsModalData] =
+    useState<StudentDetails | null>(null);
 
   useEffect(() => {
     console.log(
@@ -165,6 +161,8 @@ const TeacherDashboardPage: React.FC = () => {
               studentId: String(schedule.studentId),
               studentName:
                 schedule.studentName || student?.name || "Aluno Desconhecido",
+              age: student?.age || 0,
+              grade: student?.grade || "N/A",
               date: format(startTime, "yyyy-MM-dd"),
               time: format(startTime, "HH:mm"),
               duration: duration,
@@ -201,9 +199,27 @@ const TeacherDashboardPage: React.FC = () => {
     return teacherStudents.find((student) => student.id === studentId);
   };
 
-  const handleViewStudent = (studentId: string) => {
-    setSelectedStudentId(studentId);
-    setShowStudentModal(true);
+  const handleViewStudent = (scheduleItem: ScheduledClass) => {
+    const fullDetails = getStudentDetails(scheduleItem.studentId);
+    const details: StudentDetails = {
+      id: scheduleItem.studentId,
+      name: scheduleItem.studentName,
+      age: scheduleItem.age || fullDetails?.age || 0,
+      grade: scheduleItem.grade || fullDetails?.grade || "N/A",
+      parentName: scheduleItem.parentName || fullDetails?.parentName || "",
+      parentContact:
+        scheduleItem.parentContact || fullDetails?.parentContact || "",
+      learningDifficulties:
+        scheduleItem.difficulties ||
+        fullDetails?.learningDifficulties ||
+        "Não informado",
+      personalCondition:
+        scheduleItem.condition ||
+        fullDetails?.personalCondition ||
+        "Não informado",
+      classType: scheduleItem.type === "online" ? "ONLINE" : "IN_PERSON",
+    };
+    setStudentDetailsModalData(details);
   };
 
   const handleOpenHistory = (studentId: string, classId: string) => {
@@ -221,6 +237,9 @@ const TeacherDashboardPage: React.FC = () => {
   };
 
   const handleSaveHistory = async () => {
+    if (!historyStudentId || !historyClassId || !user) {
+      return;
+    }
     try {
       await apiService.addStudentHistory({
         studentId: historyStudentId,
@@ -234,7 +253,7 @@ const TeacherDashboardPage: React.FC = () => {
       setHistoryClassId(null);
       setHistoryText("");
       setTimeout(() => setShowSuccessModal(false), 2000);
-    } catch (err) {
+    } catch {
       // (Opcional) Exibir erro
     }
   };
@@ -292,6 +311,16 @@ const TeacherDashboardPage: React.FC = () => {
       </div>
     );
   };
+
+  // Agrupar agendamentos por horário
+  const groupedSchedules = classesForSelectedDate.reduce((acc, current) => {
+    const time = current.time;
+    if (!acc[time]) {
+      acc[time] = [];
+    }
+    acc[time].push(current);
+    return acc;
+  }, {} as { [time: string]: ScheduledClass[] });
 
   // Renderização condicional com LoadingSpinner
   if (loadingData || authLoading) {
@@ -351,221 +380,79 @@ const TeacherDashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {classesForSelectedDate.map((scheduledClassItem) => {
-                  const studentDetails = getStudentDetails(
-                    scheduledClassItem.studentId
-                  );
-
-                  const classTypeString = scheduledClassItem.type as
-                    | "online"
-                    | "presencial";
-
-                  const typeColorClass =
-                    classTypeString === "online"
-                      ? "bg-blue-200 text-blue-900"
-                      : "bg-green-200 text-green-900";
-
-                  // Calcule se a aula já passou
-                  const classDateTime = new Date(
-                    `${scheduledClassItem.date}T${scheduledClassItem.time}`
-                  );
-                  const now = new Date();
-                  const canAddHistory = classDateTime < now;
+                {Object.entries(groupedSchedules).map(([time, schedules]) => {
+                  const firstSchedule = schedules[0];
+                  const canAddHistory =
+                    new Date(`${firstSchedule.date}T${firstSchedule.time}`) <
+                    new Date();
 
                   return (
                     <div
-                      key={scheduledClassItem.id}
-                      className={`bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer w-full sm:w-auto ${
-                        selectedClass === scheduledClassItem.id
-                          ? "ring-2 ring-[var(--accent)]"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        setSelectedClass(
-                          scheduledClassItem.id === selectedClass
-                            ? null
-                            : scheduledClassItem.id
-                        )
-                      }
+                      key={time}
+                      className="bg-white border border-blue-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow w-full"
                     >
-                      <div className="border-b border-blue-100 bg-blue-50 px-2 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center w-full">
-                          <div className="flex items-center mb-1 sm:mb-0">
-                            <User className="h-5 w-5 text-blue-500 mr-2" />
-                            <span className="font-medium text-gray-800 text-base sm:text-lg break-words max-w-[120px] sm:max-w-none">
-                              {scheduledClassItem.studentName}
-                            </span>
-                            <span className="mx-2 text-gray-400 hidden sm:inline">
-                              •
-                            </span>
-                          </div>
-                          <div className="flex items-center text-sm sm:text-base">
-                            <Clock className="h-4 w-4 text-blue-500 mr-1" />
-                            <span className="text-gray-600">
-                              {scheduledClassItem.time} (
-                              {scheduledClassItem.duration} min)
-                            </span>
-                            <span className="mx-2 text-gray-400 hidden sm:inline">
-                              •
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs ${typeColorClass}`}
-                            >
-                              {classTypeString === "online"
-                                ? "Online"
-                                : "Presencial"}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Ações: menu no mobile, ícones no desktop */}
-                        <div className="flex sm:hidden">
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                            title="Ações"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowActionsMenu(
-                                showActionsMenu === scheduledClassItem.id
-                                  ? null
-                                  : scheduledClassItem.id
-                              );
-                            }}
+                      <div className="border-b border-blue-100 bg-blue-50 px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center text-lg">
+                          <Clock className="h-5 w-5 text-blue-500 mr-2" />
+                          <span className="font-medium text-gray-800">
+                            {time} ({firstSchedule.duration} min)
+                          </span>
+                          <span className="mx-2 text-gray-400">•</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs ${
+                              firstSchedule.type === "online"
+                                ? "bg-blue-200 text-blue-900"
+                                : "bg-green-200 text-green-900"
+                            }`}
                           >
-                            <MoreHorizontal className="h-5 w-5 text-gray-500" />
-                          </button>
-                          {showActionsMenu === scheduledClassItem.id && (
-                            <div className="absolute z-30 mt-8 right-4 bg-white border rounded shadow-lg flex flex-col min-w-[160px]">
+                            {firstSchedule.type === "online"
+                              ? "Online"
+                              : "Presencial"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {schedules.map((scheduleItem) => (
+                          <div
+                            key={scheduleItem.id}
+                            className="flex justify-between items-center"
+                          >
+                            <div className="flex items-center">
+                              <User className="h-5 w-5 text-gray-500 mr-2" />
+                              <span className="text-gray-800">
+                                {scheduleItem.studentName}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
                               <button
-                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleViewStudent(
-                                    scheduledClassItem.studentId
-                                  );
-                                  setShowActionsMenu(null);
-                                }}
+                                className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                                title="Ver detalhes do aluno"
+                                onClick={() => handleViewStudent(scheduleItem)}
                               >
-                                <FileText className="h-4 w-4 text-gray-500" />{" "}
-                                Ver detalhes
+                                <FileText className="h-5 w-5 text-gray-500" />
                               </button>
-                              <button
-                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowActionsMenu(null);
-                                }}
-                              >
-                                <Edit className="h-4 w-4 text-gray-500" />{" "}
-                                Editar aula
-                              </button>
-                              <button
-                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowActionsMenu(null);
-                                }}
-                              >
-                                <MessageSquare className="h-4 w-4 text-gray-500" />{" "}
-                                Enviar mensagem
-                              </button>
-                              <button
-                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-left"
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
                                   handleOpenHistory(
-                                    scheduledClassItem.studentId,
-                                    scheduledClassItem.id
-                                  );
-                                  setShowActionsMenu(null);
-                                }}
+                                    scheduleItem.studentId,
+                                    scheduleItem.id
+                                  )
+                                }
                                 disabled={!canAddHistory}
-                                title={
+                                data-title={
                                   canAddHistory
-                                    ? "Adicionar histórico do aluno"
+                                    ? "Adicionar histórico"
                                     : "Só é possível adicionar histórico após a aula"
                                 }
                               >
-                                <Book className="h-4 w-4 text-gray-500" />{" "}
-                                Adicionar histórico
-                              </button>
+                                Histórico
+                              </Button>
                             </div>
-                          )}
-                        </div>
-                        <div className="hidden sm:flex space-x-2">
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                            title="Ver detalhes do aluno"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewStudent(scheduledClassItem.studentId);
-                            }}
-                          >
-                            <FileText className="h-5 w-5 text-gray-500" />
-                          </button>
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                            title="Editar aula"
-                          >
-                            <Edit className="h-5 w-5 text-gray-500" />
-                          </button>
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                            title="Enviar mensagem"
-                          >
-                            <MessageSquare className="h-5 w-5 text-gray-500" />
-                          </button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenHistory(
-                                scheduledClassItem.studentId,
-                                scheduledClassItem.id
-                              );
-                            }}
-                            disabled={!canAddHistory}
-                            title={
-                              canAddHistory
-                                ? "Adicionar histórico do aluno"
-                                : "Só é possível adicionar histórico após a aula"
-                            }
-                          >
-                            Adicionar histórico do aluno
-                          </Button>
-                        </div>
-                      </div>
-                      {selectedClass === scheduledClassItem.id &&
-                        studentDetails && (
-                          <div className="px-4 py-3 border-t border-blue-100 bg-blue-50">
-                            <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                              Detalhes da Aula e do Aluno
-                            </h3>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">
-                                Idade do Aluno:
-                              </span>{" "}
-                              {studentDetails.age} anos
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">Série:</span>{" "}
-                              {studentDetails.grade}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">
-                                Dificuldades de Aprendizagem:
-                              </span>{" "}
-                              {scheduledClassItem.difficulties || "Nenhuma"}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">
-                                Condição Pessoal:
-                              </span>{" "}
-                              {scheduledClassItem.condition || "Nenhuma"}
-                            </p>
                           </div>
-                        )}
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -575,7 +462,7 @@ const TeacherDashboardPage: React.FC = () => {
         </CardBody>
       </Card>
       {/* Student Details Modal */}
-      {showStudentModal && selectedStudentId && (
+      {studentDetailsModalData && (
         <div
           className="fixed inset-0 z-10 overflow-y-auto"
           aria-labelledby="modal-title"
@@ -595,8 +482,7 @@ const TeacherDashboardPage: React.FC = () => {
             </span>
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               {(() => {
-                const student = getStudentDetails(selectedStudentId);
-                if (!student) return null;
+                const student = studentDetailsModalData;
                 return (
                   <>
                     <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
@@ -623,7 +509,9 @@ const TeacherDashboardPage: React.FC = () => {
                                   Idade
                                 </h4>
                                 <p className="mt-1 text-gray-900">
-                                  {student.age} anos
+                                  {student.age > 0
+                                    ? `${student.age} anos`
+                                    : "Não informada"}
                                 </p>
                               </div>
                               <div>
@@ -631,7 +519,9 @@ const TeacherDashboardPage: React.FC = () => {
                                   Série
                                 </h4>
                                 <p className="mt-1 text-gray-900">
-                                  {student.grade}
+                                  {student.grade && student.grade !== "N/A"
+                                    ? student.grade
+                                    : "Não informada"}
                                 </p>
                               </div>
                               <div>
@@ -640,8 +530,8 @@ const TeacherDashboardPage: React.FC = () => {
                                 </h4>
                                 <p className="mt-1 text-gray-900">
                                   {student.classType === "ONLINE"
-                                    ? "ONLINE"
-                                    : "IN_PERSON"}
+                                    ? "Online"
+                                    : "Presencial"}
                                 </p>
                               </div>
                             </div>
@@ -668,7 +558,7 @@ const TeacherDashboardPage: React.FC = () => {
                                 Informações dos Responsáveis
                               </h4>
                               <p className="mt-1 text-gray-900">
-                                {student.parentName}
+                                {student.parentName || "Não informado"}
                               </p>
                               <div className="mt-2 flex space-x-4">
                                 <a
@@ -705,7 +595,7 @@ const TeacherDashboardPage: React.FC = () => {
                     </div>
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                       <Button
-                        onClick={() => setShowStudentModal(false)}
+                        onClick={() => setStudentDetailsModalData(null)}
                         className="w-full sm:w-auto sm:ml-3"
                       >
                         Fechar

@@ -6,7 +6,7 @@ import { apiService } from "../services/api";
 interface Child {
   id: string;
   name: string;
-  age: string;
+  age: number;
   grade: string;
   difficulties?: string;
   condition?: string;

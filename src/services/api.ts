@@ -197,6 +197,7 @@ export interface TeacherStudent {
   name: string;
   age: number;
   grade: string;
+  guardian: { name: string };
   parentName: string;
   parentContact: string;
   learningDifficulties: string;

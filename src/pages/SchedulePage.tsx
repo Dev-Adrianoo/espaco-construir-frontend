@@ -528,27 +528,14 @@ const SchedulePage: React.FC = () => {
                           (h) => h.dia === dateStr && h.hora === time
                         )?.alunos || [];
                       const isBooked = alunosSlot.length > 0;
-                      // Debug: log para ver os dados de cada slot
-                      console.log(
-                        "Slot:",
-                        time,
-                        "Alunos:",
-                        alunosSlot,
-                        "Meus filhos:",
-                        children.map((c) => c.name)
-                      );
                       return (
                         <div
                           key={time}
-                          className={`relative w-full h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium cursor-pointer transition-colors ${
+                          className={`relative w-full h-16 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                             isBooked
-                              ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-blue-200 text-blue-800"
+                              : "bg-green-100 text-green-700"
                           }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSlotClick(dateStr, time);
-                          }}
                         >
                           <span
                             className={`pt-2 text-sm ${
@@ -565,38 +552,18 @@ const SchedulePage: React.FC = () => {
                                 whiteSpace: "normal",
                               }}
                             >
-                              {alunosSlot.length > 0 &&
-                                alunosSlot.map((nome, idx) => {
-                                  const isMeuFilho = children.some(
-                                    (child) =>
-                                      child.name.trim().toLowerCase() ===
-                                      nome.trim().toLowerCase()
-                                  );
-                                  return (
-                                    <span
-                                      key={idx}
-                                      style={{
-                                        fontWeight: isMeuFilho
-                                          ? "bold"
-                                          : "normal",
-                                      }}
-                                    >
-                                      {nome}
-                                      {idx < alunosSlot.length - 1 ? ", " : ""}
-                                    </span>
-                                  );
-                                })}
-                              {alunosSlot.length > 3 && (
+                              {alunosSlot.length > 1 ? (
                                 <button
-                                  className="ml-1 underline"
+                                  className="text-white underline"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setModalAlunos(alunosSlot);
                                   }}
-                                  title="Ver todos"
                                 >
-                                  ...
+                                  {`${alunosSlot.length} alunos agendados`}
                                 </button>
+                              ) : (
+                                alunosSlot[0]
                               )}
                             </span>
                           )}
@@ -651,8 +618,8 @@ const SchedulePage: React.FC = () => {
                       key={time}
                       className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                         isBooked
-                          ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                          : "bg-green-100 text-green-700 hover:bg-green-200"
+                          ? "bg-blue-200 text-blue-800"
+                          : "bg-green-100 text-green-700"
                       }`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -858,8 +825,8 @@ const SchedulePage: React.FC = () => {
                     key={time}
                     className={`relative w-full h-16 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                       isBooked
-                        ? "bg-blue-200 text-blue-800 hover:bg-blue-300"
-                        : "bg-green-100 text-green-700 hover:bg-green-200"
+                        ? "bg-blue-200 text-blue-800"
+                        : "bg-green-100 text-green-700"
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
