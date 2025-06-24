@@ -72,7 +72,7 @@ const scheduleService = {
     return response.data;
   },
 
-  async getSchedulesWithStudents(guardianId?: string): Promise<ScheduleWithStudents[]> {
+  async getSchedulesWithStudents(guardianId?: string, teacherId?: string): Promise<ScheduleWithStudents[]> {
     try {
       let agendamentos;
 
@@ -88,8 +88,12 @@ const scheduleService = {
         
         const schedulesResponses = await Promise.all(schedulesPromises);
         agendamentos = schedulesResponses.flatMap(response => response.data);
+      } else if (teacherId) {
+        // Se temos um teacherId, buscamos os agendamentos da professora
+        const response = await api.get<ScheduleDTO[]>(`/schedules/teacher/${teacherId}`);
+        agendamentos = response.data;
       } else {
-        // Se não temos guardianId, buscamos todos os agendamentos
+        // Se não temos guardianId nem teacherId, buscamos todos os agendamentos
         const response = await api.get('/schedules');
         agendamentos = response.data;
       }

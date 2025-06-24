@@ -206,7 +206,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
       // Busca os agendamentos para todos os tipos de usuário
       try {
         const horariosResponse = await scheduleService.getSchedulesWithStudents(
-          user.role === "RESPONSAVEL" ? user.id : undefined
+          user.role === "RESPONSAVEL" ? user.id : undefined,
+          user.role === "PROFESSORA" ? user.id : undefined
         );
         console.log('Horários recebidos:', horariosResponse);
         setHorariosComAlunos(horariosResponse);
@@ -234,7 +235,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     const fetchData = async () => {
       try {
         const horariosResponse = await scheduleService.getSchedulesWithStudents(
-          user.role === "RESPONSAVEL" ? user.id : undefined
+          user.role === "RESPONSAVEL" ? user.id : undefined,
+          user.role === "PROFESSORA" ? user.id : undefined
         );
         setHorariosComAlunos(horariosResponse);
       } catch (error) {
@@ -474,11 +476,21 @@ const SchedulePage: React.FC = (): JSX.Element => {
     setCurrentDayIndex((prev) => Math.min(6, prev + 1));
   };
 
-  if (loadingChildren || loadingSchedule || loadingTeachers) {
+  // Atualiza a condição de loading baseada no papel do usuário
+  const isLoading = user?.role === "RESPONSAVEL" 
+    ? loadingChildren || loadingSchedule || loadingTeachers
+    : loadingSchedule;
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <LoadingSpinner />
-        <p className="ml-2 text-gray-500">Carregando dados...</p>
+        <p className="ml-2 text-gray-500">
+          {user?.role === "RESPONSAVEL" 
+            ? "Carregando dados..."
+            : "Carregando agenda da professora..."
+          }
+        </p>
       </div>
     );
   }
@@ -537,16 +549,6 @@ const SchedulePage: React.FC = (): JSX.Element => {
   const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
   if (user?.role === "PROFESSORA") {
-    if (loadingSchedule) {
-      return (
-        <div className="flex justify-center items-center h-screen">
-          <LoadingSpinner />
-          <p className="ml-2 text-gray-500">
-            Carregando agenda da professora...
-          </p>
-        </div>
-      );
-    }
     if (scheduleError) {
       return (
         <div className="max-w-4xl mx-auto mt-8 text-center text-red-500">
