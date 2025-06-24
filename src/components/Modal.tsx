@@ -23,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, zIndex 
       
       {/* Modal */}
       <div 
-        className="fixed inset-0 flex items-center justify-center p-4"
+        className="fixed inset-0 flex items-center justify-center p-9"
         style={{ zIndex: zIndex + 1 }}
       >
         <div className="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
@@ -43,7 +43,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, zIndex 
           </div>
 
           {/* Content */}
-          <div>
+          <div className="p-6">
             {children}
           </div>
         </div>

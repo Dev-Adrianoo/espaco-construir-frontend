@@ -3,26 +3,28 @@ import api from './api';
 export interface Student {
   id: string;
   name: string;
-  birthDate: string;
-  responsibleId: string;
-  schoolYear: string;
-  observations?: string;
-  createdAt: string;
-  updatedAt: string;
+  age: number;
+  grade: string;
+  difficulties?: string;
+  condition?: string;
+  guardianId: number;
 }
 
 export interface CreateStudentData {
   name: string;
-  birthDate: string;
-  schoolYear: string;
-  observations?: string;
+  age: number;
+  grade: string;
+  difficulties?: string;
+  condition?: string;
+  guardianId: number;
 }
 
 export interface UpdateStudentData {
   name?: string;
-  birthDate?: string;
-  schoolYear?: string;
-  observations?: string;
+  age?: number;
+  grade?: string;
+  difficulties?: string;
+  condition?: string;
 }
 
 const studentService = {
@@ -42,7 +44,7 @@ const studentService = {
   },
 
   async createStudent(data: CreateStudentData): Promise<Student> {
-    const response = await api.post<Student>('/students', data);
+    const response = await api.post<Student>('/students/register', data);
     return response.data;
   },
 

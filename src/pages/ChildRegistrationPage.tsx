@@ -10,40 +10,57 @@ import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import studentService from "../services/studentService";
 
 interface Child {
   id: string;
   name: string;
   age: number;
   grade: string;
-  classType: string;
+  difficulties?: string;
+  condition?: string;
 }
 
 const gradeOptions = [
   { value: "kindergarten", label: "Educação Infantil" },
-  { value: "1st", label: "1º ano" },
-  { value: "2nd", label: "2º ano" },
-  { value: "3rd", label: "3º ano" },
-  { value: "4th", label: "4º ano" },
-  { value: "5th", label: "5º ano" },
-  { value: "6th", label: "6º ano" },
-  { value: "7th", label: "7º ano" },
-  { value: "8th", label: "8º ano" },
-  { value: "9th", label: "9º ano" },
-  { value: "10th", label: "1º ano do Ensino Médio" },
-  { value: "11th", label: "2º ano do Ensino Médio" },
-  { value: "12th", label: "3º ano do Ensino Médio" },
+  { value: "1", label: "1º ano" },
+  { value: "2", label: "2º ano" },
+  { value: "3", label: "3º ano" },
+  { value: "4", label: "4º ano" },
+  { value: "5", label: "5º ano" },
+  { value: "6", label: "6º ano" },
+  { value: "7", label: "7º ano" },
+  { value: "8", label: "8º ano" },
+  { value: "9", label: "9º ano" },
+  { value: "10", label: "1º ano EM" },
+  { value: "11", label: "2º ano EM" },
+  { value: "12", label: "3º ano EM" },
 ];
+
+const gradeMap: { [key: string]: string } = {
+  'kindergarten': 'Educação Infantil',
+  '1': '1º ano',
+  '2': '2º ano',
+  '3': '3º ano',
+  '4': '4º ano',
+  '5': '5º ano',
+  '6': '6º ano',
+  '7': '7º ano',
+  '8': '8º ano',
+  '9': '9º ano',
+  '10': '1º ano EM',
+  '11': '2º ano EM',
+  '12': '3º ano EM',
+};
 
 const ChildRegistrationPage: React.FC = () => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
-    age: "",
+    birthDate: "",
     grade: "",
     difficulties: "",
     condition: "",
-    classType: "in-person",
     parent: "",
   });
 
@@ -67,7 +84,24 @@ const ChildRegistrationPage: React.FC = () => {
     null
   );
 
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [childToDelete, setChildToDelete] = useState<Child | null>(null);
+
   const navigate = useNavigate();
+
+  const calculateAge = (birthDate: string): number => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
 
   useEffect(() => {
     const fetchLoggedGuardian = async () => {
@@ -94,18 +128,14 @@ const ChildRegistrationPage: React.FC = () => {
             const childrenResponse = await apiService.getChildrenByResponsible(
               Number(response.data.id)
             );
-            const formattedChildren = childrenResponse.data.map(
-              (child: {
-                id: number;
-                name: string;
-                age: number;
-                grade: string;
-                classType: string;
-              }) => ({
-                ...child,
-                id: String(child.id),
-              })
-            );
+            const formattedChildren = childrenResponse.data.map((child: any) => ({
+              id: String(child.id),
+              name: child.name,
+              age: child.age,
+              grade: child.grade,
+              difficulties: child.difficulties,
+              condition: child.condition
+            }));
             setChildren(formattedChildren);
           } catch (err) {
             const error = err as AxiosError<{ message: string }>;
@@ -151,13 +181,82 @@ const ChildRegistrationPage: React.FC = () => {
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      birthDate: "",
+      grade: "",
+      difficulties: "",
+      condition: "",
+      parent: String(loggedGuardianId),
+    });
+    setEditingChild(null);
+  };
+
+  const handleEdit = (child: Child) => {
+    // Convert grade back to select value
+    const gradeValue = Object.entries(gradeMap).find(([_, value]) => value === child.grade)?.[0] || "";
+    
+    // Calculate birthdate from age
+    const today = new Date();
+    const birthYear = today.getFullYear() - child.age;
+    const birthDate = new Date(birthYear, 0, 1).toISOString().split('T')[0];
+
+    setFormData({
+      name: child.name,
+      birthDate,
+      grade: gradeValue,
+      difficulties: child.difficulties || "",
+      condition: child.condition || "",
+      parent: String(loggedGuardianId),
+    });
+    setEditingChild(child);
+  };
+
+  const handleDelete = async (child: Child) => {
+    setChildToDelete(child);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!childToDelete) return;
+
+    try {
+      await studentService.deleteStudent(childToDelete.id);
+      
+      // Refresh the children list
+      const updatedChildren = await apiService.getChildrenByResponsible(Number(loggedGuardianId));
+      const formattedChildren = updatedChildren.data.map((child: any) => ({
+        id: String(child.id),
+        name: child.name,
+        age: child.age,
+        grade: child.grade,
+        difficulties: child.difficulties,
+        condition: child.condition
+      }));
+      setChildren(formattedChildren);
+      
+      setSubmissionStatus("success");
+      setSubmissionMessage("Aluno excluído com sucesso!");
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setSubmissionStatus("error");
+      setSubmissionMessage(error.response?.data?.message || "Erro ao excluir aluno.");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setChildToDelete(null);
+      setTimeout(() => {
+        setSubmissionStatus("idle");
+        setSubmissionMessage(null);
+      }, 5000);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loggedGuardianId) {
       setSubmissionStatus("error");
-      setSubmissionMessage(
-        "Responsável não identificado. Por favor, faça login novamente."
-      );
+      setSubmissionMessage("Responsável não identificado. Por favor, faça login novamente.");
       return;
     }
 
@@ -165,32 +264,42 @@ const ChildRegistrationPage: React.FC = () => {
     setSubmissionMessage(null);
 
     try {
-      await apiService.registerStudent({
+      const age = calculateAge(formData.birthDate);
+      const studentData = {
         name: formData.name,
-        guardianId: Number(loggedGuardianId),
-        age: Number(formData.age),
-        grade: formData.grade,
-        condition: formData.condition,
+        age: age,
+        grade: gradeMap[formData.grade] || formData.grade,
         difficulties: formData.difficulties,
-      });
-      setSubmissionStatus("success");
-      setSubmissionMessage("Aluno cadastrado com sucesso!");
+        condition: formData.condition,
+        guardianId: Number(loggedGuardianId)
+      };
 
-      setFormData({
-        name: "",
-        age: "",
-        grade: "",
-        difficulties: "",
-        condition: "",
-        classType: "in-person",
-        parent: String(loggedGuardianId),
-      });
+      if (editingChild) {
+        await studentService.updateStudent(editingChild.id, studentData);
+        setSubmissionMessage("Aluno atualizado com sucesso!");
+      } else {
+        await studentService.createStudent(studentData);
+        setSubmissionMessage("Aluno cadastrado com sucesso!");
+      }
+      
+      setSubmissionStatus("success");
+      resetForm();
+
+      // Refresh the children list
+      const updatedChildren = await apiService.getChildrenByResponsible(Number(loggedGuardianId));
+      const formattedChildren = updatedChildren.data.map((child: any) => ({
+        id: String(child.id),
+        name: child.name,
+        age: child.age,
+        grade: child.grade,
+        difficulties: child.difficulties,
+        condition: child.condition
+      }));
+      setChildren(formattedChildren);
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
       setSubmissionStatus("error");
-      setSubmissionMessage(
-        error.response?.data?.message || "Erro ao cadastrar aluno."
-      );
+      setSubmissionMessage(error.response?.data?.message || `Erro ao ${editingChild ? 'atualizar' : 'cadastrar'} aluno.`);
     } finally {
       setTimeout(() => {
         setSubmissionStatus("idle");
@@ -233,208 +342,190 @@ const ChildRegistrationPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {user?.role === "RESPONSAVEL" ? "Cadastrar Filho" : "Cadastrar Aluno"}
-          </h1>
-          
-          <p className="text-gray-600 mb-6">
-            {user?.role === "RESPONSAVEL" 
-              ? "Por favor, forneça informações sobre seu filho para ajudar a personalizar a experiência de tutoria."
-              : "Por favor, forneça informações sobre o aluno para ajudar a personalizar a experiência de tutoria."
-            }
-          </p>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Formulário */}
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              {editingChild ? "Editar Aluno" : (user?.role === "RESPONSAVEL" ? "Cadastrar Filho" : "Cadastrar Aluno")}
+            </h1>
+            
+            <p className="text-gray-600 mb-6">
+              {user?.role === "RESPONSAVEL" 
+                ? "Por favor, forneça informações sobre seu filho para ajudar a personalizar a experiência de tutoria."
+                : "Por favor, forneça informações sobre o aluno para ajudar a personalizar a experiência de tutoria."
+              }
+            </p>
 
-          {submissionStatus === "loading" && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-600">Cadastrando aluno...</p>
-            </div>
-          )}
-          {submissionStatus === "success" && submissionMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-green-600">{submissionMessage}</p>
-            </div>
-          )}
-          {submissionStatus === "error" && submissionMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{submissionMessage}</p>
-            </div>
-          )}
+            {submissionStatus === "loading" && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-blue-700">Cadastrando aluno...</p>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {user?.role === "RESPONSAVEL" ? "Nome Completo do Filho" : "Nome Completo do Aluno"} *
-              </label>
-              <input
-                type="text"
+            {submissionStatus === "success" && submissionMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-green-700">{submissionMessage}</p>
+              </div>
+            )}
+
+            {submissionStatus === "error" && submissionMessage && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700">{submissionMessage}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Input
+                label="Nome Completo"
+                id="name"
+                name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder={user?.role === "RESPONSAVEL" ? "Digite o nome do seu filho" : "Digite o nome do aluno"}
-                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 required
+                placeholder="Digite o nome completo"
               />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Idade *
-              </label>
-              <input
-                type="number"
-                value={formData.age}
+              <Input
+                label="Data de Nascimento"
+                id="birthDate"
+                name="birthDate"
+                type="date"
+                value={formData.birthDate}
                 onChange={handleChange}
-                placeholder="Digite a idade"
-                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 required
-                min="0"
               />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Série Escolar *
-              </label>
-              <select
+              <Select
+                label="Série Escolar"
+                id="grade"
+                name="grade"
                 value={formData.grade}
                 onChange={handleChange}
-                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 required
-              >
-                <option value="">Selecione a série</option>
-                <option value="kindergarten">Educação Infantil</option>
-                <option value="1st">1º ano</option>
-                <option value="2nd">2º ano</option>
-                <option value="3rd">3º ano</option>
-                <option value="4th">4º ano</option>
-                <option value="5th">5º ano</option>
-                <option value="6th">6º ano</option>
-                <option value="7th">7º ano</option>
-                <option value="8th">8º ano</option>
-                <option value="9th">9º ano</option>
-                <option value="10th">1º ano do Ensino Médio</option>
-                <option value="11th">2º ano do Ensino Médio</option>
-                <option value="12th">3º ano do Ensino Médio</option>
-              </select>
-            </div>
+                options={gradeOptions}
+              />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Dificuldades de Aprendizagem (se houver)
-              </label>
-              <textarea
+              <Textarea
+                label="Dificuldades de Aprendizagem (se houver)"
+                id="difficulties"
+                name="difficulties"
                 value={formData.difficulties}
                 onChange={handleChange}
                 placeholder="Descreva quaisquer dificuldades de aprendizagem ou necessidades educacionais especiais"
-                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
               />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Condição Pessoal
-              </label>
-              <textarea
+              <Textarea
+                label="Condição Pessoal"
+                id="condition"
+                name="condition"
                 value={formData.condition}
                 onChange={handleChange}
                 placeholder="Qualquer condição médica, alergias ou preferências pessoais que devemos conhecer"
-                className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
               />
-            </div>
 
-            <div className="space-y-2">
-              <p className="block text-sm font-medium text-gray-700">
-                Tipo de Aula
-              </p>
-              <div className="flex space-x-6">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio h-4 w-4 text-indigo-600"
-                    name="classType"
-                    value="online"
-                    checked={formData.classType === "online"}
-                    onChange={handleRadioChange}
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Online</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio h-4 w-4 text-indigo-600"
-                    name="classType"
-                    value="in-person"
-                    checked={formData.classType === "in-person"}
-                    onChange={handleRadioChange}
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Presencial</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={submissionStatus === "loading"}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
-              >
-                {submissionStatus === "loading" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Cadastrando...</span>
-                  </>
-                ) : (
-                  <span>Cadastrar</span>
+              <div className="flex justify-end space-x-4">
+                {editingChild && (
+                  <Button 
+                    type="button" 
+                    onClick={resetForm}
+                    variant="secondary"
+                  >
+                    Cancelar
+                  </Button>
                 )}
-              </button>
-            </div>
-          </form>
+                <Button type="submit" disabled={submissionStatus === "loading"}>
+                  {submissionStatus === "loading" 
+                    ? "Salvando..." 
+                    : editingChild 
+                      ? "Salvar Alterações" 
+                      : "Cadastrar"
+                  }
+                </Button>
+              </div>
+            </form>
+          </div>
 
-          {children.length > 0 && (
-            <div className="mt-4 p-3 bg-white rounded-md">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Filhos Cadastrados
-              </h2>
-              <div className="flex flex-col gap-4">
+          {/* Lista de Alunos */}
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Alunos Cadastrados</h2>
+            {children.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">Nenhum aluno cadastrado ainda.</p>
+            ) : (
+              <div className="space-y-4">
                 {children.map((child) => (
                   <div
                     key={child.id}
-                    className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md"
+                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <div>
-                      <p className="font-semibold text-lg text-gray-800 mb-1">
-                        {child.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {child.age} anos,{" "}
-                        {child.grade === "kindergarten"
-                          ? "Educação Infantil"
-                          : `${child.grade}º ano`}
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button variant="primary" size="sm">
-                        Editar
-                      </Button>
-                      <Button variant="danger" size="sm">
-                        Excluir
-                      </Button>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{child.name}</h3>
+                        <p className="text-sm text-gray-600">
+                          {child.age} anos, {child.grade}
+                        </p>
+                        {child.difficulties && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            <strong>Dificuldades:</strong> {child.difficulties}
+                          </p>
+                        )}
+                        {child.condition && (
+                          <p className="text-sm text-gray-500">
+                            <strong>Condições:</strong> {child.condition}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(child)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(child)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && childToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirmar Exclusão</h3>
+            <p className="text-gray-600 mb-6">
+              Tem certeza que deseja excluir o aluno {childToDelete.name}? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setChildToDelete(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

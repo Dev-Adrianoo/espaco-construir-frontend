@@ -145,6 +145,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     studentName?: string;
   }>({ show: false });
 
+  const [isCanceling, setIsCanceling] = useState(false);
+
   const formatDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-");
     return `${day}/${month}/${year}`;
@@ -360,33 +362,45 @@ const SchedulePage: React.FC = (): JSX.Element => {
     studentName: string
   ) => {
     try {
+      console.log('Iniciando cancelamento para:', { date, time, studentName });
+      
       // Busca o ID do aluno pelo nome
       const student = children.find(child => child.name === studentName);
       if (!student) {
+        console.error('Aluno não encontrado:', studentName);
         toast.error('Aluno não encontrado');
         return;
       }
+      console.log('Aluno encontrado:', student);
 
       // Busca todos os agendamentos
       const response = await apiService.getAllSchedules();
       const schedules = response.data;
+      console.log('Todos os agendamentos:', schedules);
       
       // Encontra o agendamento específico
       const schedule = schedules.find((s: ScheduleDTO) => {
         const scheduleDate = s.startTime.split('T')[0];
         const scheduleTime = s.startTime.split('T')[1].substring(0, 5);
-        return s.studentId === Number(student.id) &&
+        const match = s.studentId === Number(student.id) &&
                scheduleDate === date &&
                scheduleTime === time;
+        if (match) {
+          console.log('Agendamento encontrado:', s);
+        }
+        return match;
       });
 
       if (!schedule) {
+        console.error('Agendamento não encontrado para:', { date, time, studentId: student.id });
         toast.error('Agendamento não encontrado');
         return;
       }
 
-      // Cancela o agendamento
-      await scheduleService.cancelSchedule(String(schedule.id));
+      console.log('Deletando agendamento:', schedule.id);
+      // Deleta o agendamento
+      await apiService.deleteSchedule(schedule.id);
+      console.log('Agendamento deletado com sucesso');
       
       // Atualiza os dados
       await fetchSchedule(); // Atualiza todos os dados, incluindo filhos e agendamentos
@@ -408,7 +422,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     } catch (error) {
       console.error('Erro ao desagendar:', error);
       toast.error(`Erro ao desagendar aula de ${studentName}. Tente novamente.`);
-      throw error; // Propaga o erro para que o botão possa ser restaurado
+      throw error;
     }
   };
 
@@ -1159,7 +1173,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
       {showCancelConfirmModal.show && (
         <Modal
           isOpen={showCancelConfirmModal.show}
-          onClose={() => setShowCancelConfirmModal({ show: false })}
+          onClose={() => !isCanceling && setShowCancelConfirmModal({ show: false })}
           title="Confirmar Cancelamento"
           zIndex={2000}
         >
@@ -1178,57 +1192,43 @@ const SchedulePage: React.FC = (): JSX.Element => {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowCancelConfirmModal({ show: false })}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                disabled={isCanceling}
+                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 Não, manter
               </button>
               <button
                 onClick={async () => {
                   try {
+                    setIsCanceling(true);
                     if (showCancelConfirmModal.date && showCancelConfirmModal.time && showCancelConfirmModal.studentName) {
-                      // Adiciona indicador de loading no botão
-                      const button = document.activeElement as HTMLButtonElement;
-                      const originalText = button.innerHTML;
-                      button.innerHTML = `
-                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      `;
-                      button.disabled = true;
-
                       await handleCancelSchedule(
                         showCancelConfirmModal.date,
                         showCancelConfirmModal.time,
                         showCancelConfirmModal.studentName
                       );
-
-                      // Restaura o botão após a conclusão
-                      button.innerHTML = originalText;
-                      button.disabled = false;
-
-                      // Fecha o modal apenas após o sucesso
                       setShowCancelConfirmModal({ show: false });
                     }
                   } catch (error) {
                     console.error('Erro ao cancelar agendamento:', error);
-                    // Em caso de erro, também restaura o botão
-                    const button = document.activeElement as HTMLButtonElement;
-                    button.innerHTML = `
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Sim, cancelar
-                    `;
-                    button.disabled = false;
+                  } finally {
+                    setIsCanceling(false);
                   }
                 }}
-                className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1"
+                disabled={isCanceling}
+                className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 disabled:opacity-50"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Sim, cancelar
+                {isCanceling ? (
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                {isCanceling ? 'Cancelando...' : 'Sim, cancelar'}
               </button>
             </div>
           </div>
