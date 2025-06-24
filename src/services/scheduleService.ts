@@ -1,4 +1,5 @@
 import api from './api';
+import { ScheduleDTO } from './api';
 
 export interface Schedule {
   id: string;
@@ -25,6 +26,13 @@ export interface CreateScheduleData {
 export interface UpdateScheduleData {
   status?: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
+}
+
+export interface ScheduleWithStudents {
+  dia: string;
+  hora: string;
+  alunos: string[];
+  studentIds: string[];
 }
 
 const scheduleService = {
@@ -64,15 +72,32 @@ const scheduleService = {
     return response.data;
   },
 
-  async getSchedulesWithStudents(): Promise<{ dia: string; hora: string; alunos: string[] }[]> {
+  async getSchedulesWithStudents(guardianId?: string): Promise<ScheduleWithStudents[]> {
     try {
-      // Primeiro, vamos pegar todos os agendamentos
-      const response = await api.get('/schedules');
-      console.log('Resposta dos agendamentos:', response.data);
+      let agendamentos;
+
+      if (guardianId) {
+        // Se temos um guardianId, primeiro buscamos os filhos deste responsável
+        const childrenResponse = await api.get(`/guardians/children?responsavelId=${guardianId}`);
+        const children = childrenResponse.data;
+        
+        // Depois buscamos os agendamentos de cada filho
+        const schedulesPromises = children.map((child: any) => 
+          api.get<ScheduleDTO[]>(`/schedules/student/${child.id}`)
+        );
+        
+        const schedulesResponses = await Promise.all(schedulesPromises);
+        agendamentos = schedulesResponses.flatMap(response => response.data);
+      } else {
+        // Se não temos guardianId, buscamos todos os agendamentos
+        const response = await api.get('/schedules');
+        agendamentos = response.data;
+      }
+
+      console.log('Resposta dos agendamentos:', agendamentos);
 
       // Vamos transformar os dados no formato que precisamos
-      const agendamentos = response.data || [];
-      const horariosAgrupados = agendamentos.reduce((acc: any[], agendamento: any) => {
+      const horariosAgrupados = agendamentos.reduce((acc: ScheduleWithStudents[], agendamento: any) => {
         const dia = agendamento.startTime.split('T')[0];
         const hora = agendamento.startTime.split('T')[1].substring(0, 5);
         
@@ -83,13 +108,15 @@ const scheduleService = {
           // Se existe, adiciona o aluno à lista
           if (agendamento.studentName && !horarioExistente.alunos.includes(agendamento.studentName)) {
             horarioExistente.alunos.push(agendamento.studentName);
+            horarioExistente.studentIds.push(String(agendamento.studentId));
           }
         } else {
           // Se não existe, cria um novo horário
           acc.push({
             dia,
             hora,
-            alunos: agendamento.studentName ? [agendamento.studentName] : []
+            alunos: agendamento.studentName ? [agendamento.studentName] : [],
+            studentIds: agendamento.studentId ? [String(agendamento.studentId)] : []
           });
         }
         

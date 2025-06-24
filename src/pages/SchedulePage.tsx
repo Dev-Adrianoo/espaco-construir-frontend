@@ -74,6 +74,13 @@ type ScheduleType = {
   };
 };
 
+interface ScheduleWithStudents {
+  dia: string;
+  hora: string;
+  alunos: string[];
+  studentIds: string[];
+}
+
 const SchedulePage: React.FC = (): JSX.Element => {
   const { user } = useAuth();
   const today = new Date();
@@ -124,9 +131,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   const [showWeekCalendarModal, setShowWeekCalendarModal] = useState(false);
 
-  const [horariosComAlunos, setHorariosComAlunos] = useState<
-    { dia: string; hora: string; alunos: string[] }[]
-  >([]);
+  const [horariosComAlunos, setHorariosComAlunos] = useState<ScheduleWithStudents[]>([]);
   const [modalAlunos, setModalAlunos] = useState<string[] | null>(null);
 
   const [showSlotActionModal, setShowSlotActionModal] = useState(false);
@@ -159,72 +164,78 @@ const SchedulePage: React.FC = (): JSX.Element => {
       setLoadingSchedule(true);
       setScheduleError(null);
 
-    if (user.role === "RESPONSAVEL") {
-      const responsavelId = user.id;
-      try {
-        setLoadingChildren(true);
-        const response = await apiService.getChildrenByResponsible(
-          Number(responsavelId)
-        );
-        const formattedChildren = response.data.map((child: ApiChild) => ({
-          ...child,
-          id: String(child.id),
-        }));
-        setChildren(formattedChildren);
-        setSelectedChildren([]);
-      } catch (err) {
-        const error = err as AxiosError<{ message: string }>;
-        setChildrenError(
-          error.response?.data?.message || "Erro ao carregar seus filhos."
-        );
-      } finally {
-        setLoadingChildren(false);
-      }
-
-      try {
-        setLoadingTeachers(true);
-        const teachersResponse = await apiService.getTeachers();
-        setTeachers(teachersResponse.data);
-        if (teachersResponse.data.length > 0) {
-          setSelectedTeacherId(String(teachersResponse.data[0].id));
+      if (user.role === "RESPONSAVEL") {
+        const responsavelId = user.id;
+        try {
+          setLoadingChildren(true);
+          const response = await apiService.getChildrenByResponsible(
+            Number(responsavelId)
+          );
+          const formattedChildren = response.data.map((child: ApiChild) => ({
+            ...child,
+            id: String(child.id),
+          }));
+          setChildren(formattedChildren);
+          setSelectedChildren([]);
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setChildrenError(
+            error.response?.data?.message || "Erro ao carregar seus filhos."
+          );
+        } finally {
+          setLoadingChildren(false);
         }
-      } catch (err) {
-        const error = err as AxiosError<{ message: string }>;
-        setTeachersError(
-          error.response?.data?.message || "Erro ao carregar professoras."
-        );
-      } finally {
-        setLoadingTeachers(false);
-      }
+
+        try {
+          setLoadingTeachers(true);
+          const teachersResponse = await apiService.getTeachers();
+          setTeachers(teachersResponse.data);
+          if (teachersResponse.data.length > 0) {
+            setSelectedTeacherId(String(teachersResponse.data[0].id));
+          }
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setTeachersError(
+            error.response?.data?.message || "Erro ao carregar professoras."
+          );
+        } finally {
+          setLoadingTeachers(false);
+        }
       }
 
       // Busca os agendamentos para todos os tipos de usuário
       try {
-        const horariosResponse = await scheduleService.getSchedulesWithStudents();
+        const horariosResponse = await scheduleService.getSchedulesWithStudents(
+          user.role === "RESPONSAVEL" ? user.id : undefined
+        );
         console.log('Horários recebidos:', horariosResponse);
         setHorariosComAlunos(horariosResponse);
       } catch (error) {
         console.error('Erro ao buscar horários:', error);
-          setScheduleError("Não foi possível carregar os agendamentos.");
+        setScheduleError("Não foi possível carregar os agendamentos.");
       }
     } catch (error) {
       console.error('Erro geral:', error);
       setScheduleError("Ocorreu um erro ao carregar os dados.");
-        } finally {
-          setLoadingSchedule(false);
-        }
+    } finally {
+      setLoadingSchedule(false);
+    }
   };
 
   useEffect(() => {
     fetchSchedule();
   }, [user]);
 
-  // Adiciona useEffect para atualizar os dados periodicamente
+  // Atualiza o useEffect que busca dados periodicamente
   useEffect(() => {
+    if (!user) return;
+
     // Função para buscar os dados
     const fetchData = async () => {
       try {
-        const horariosResponse = await scheduleService.getSchedulesWithStudents();
+        const horariosResponse = await scheduleService.getSchedulesWithStudents(
+          user.role === "RESPONSAVEL" ? user.id : undefined
+        );
         setHorariosComAlunos(horariosResponse);
       } catch (error) {
         console.error('Erro ao atualizar agendamentos:', error);
@@ -239,22 +250,19 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
     // Cleanup
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // Função utilitária para pegar todos os alunos agendados em um slot
-  function getAlunosAgendados(date: string, time: string): { alunos: string[] } {
+  function getAlunosAgendados(date: string, time: string): { alunos: string[]; studentIds: string[] } {
     // Se não tiver dados, retorna array vazio
     if (!horariosComAlunos || !Array.isArray(horariosComAlunos)) {
       console.log('Sem horários:', horariosComAlunos);
-      return { alunos: [] };
+      return { alunos: [], studentIds: [] };
     }
 
-    // Encontra os alunos para este horário específico
-    const alunosDoHorario = horariosComAlunos
-      .filter(horario => horario.dia === date && horario.hora === time)
-      .flatMap(horario => horario.alunos);
-
-    return { alunos: alunosDoHorario };
+    // Procura o horário específico
+    const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
+    return horario ? { alunos: horario.alunos, studentIds: horario.studentIds } : { alunos: [], studentIds: [] };
   }
 
   // Adiciona useEffect para monitorar mudanças nos agendamentos
@@ -271,25 +279,47 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
-    const { alunos: alunosJaAgendados } = getAlunosAgendados(date, time);
+    if (!user) return;
+
+    const { alunos: alunosAgendados, studentIds } = getAlunosAgendados(date, time);
     
-    if (user?.role === "RESPONSAVEL") {
-      // Filtra os filhos que ainda não estão agendados neste horário
-      const filhosNaoAgendados = children.filter(
-        (child) => !alunosJaAgendados.includes(child.name)
+    // Se for responsável, só pode interagir com seus próprios filhos
+    if (user.role === "RESPONSAVEL") {
+      const meusFilhos = children.map(child => child.name);
+      const alunosAgendadosQuePodemosVer = alunosAgendados.filter(aluno => 
+        meusFilhos.includes(aluno)
       );
 
-      if (filhosNaoAgendados.length === 0) {
-        toast.error("Todos os seus filhos já estão agendados neste horário.");
+      if (alunosAgendadosQuePodemosVer.length > 0) {
+        // Se tem filhos agendados neste horário, mostra as opções
+        setSlotActionData({
+          date,
+          time,
+          scheduleId: Number(studentIds[0]), // Assumindo que o ID está na mesma ordem dos nomes
+          childName: alunosAgendadosQuePodemosVer[0],
+          filhosNaoAgendados: children.filter(child => !alunosAgendados.includes(child.name))
+        });
+        setShowSlotActionModal(true);
         return;
       }
 
-      setSelectedSlot({ date, time });
-      setShowBookingModal(true);
+      // Se não tem filhos agendados, verifica se pode agendar
+      const filhosDisponiveis = children.filter(child => !alunosAgendados.includes(child.name));
+      if (filhosDisponiveis.length === 0) {
+        toast.error("Todos os seus filhos já estão agendados neste horário.");
+        return;
+      }
     } else {
-      // Se for professora, mostra os alunos agendados
-      setModalAlunos(alunosJaAgendados);
+      // Para professores, mostra todos os alunos
+      if (alunosAgendados.length > 0) {
+        setModalAlunos(alunosAgendados);
+        return;
+      }
     }
+
+    // Se chegou aqui, pode agendar
+    setSelectedSlot({ date, time });
+    setShowBookingModal(true);
   };
 
   // Handle booking confirmation
@@ -434,6 +464,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   const handleTeacherChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedTeacherId(e.target.value);
+  };
+
+  const handlePreviousDay = () => {
+    setCurrentDayIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleNextDay = () => {
+    setCurrentDayIndex((prev) => Math.min(6, prev + 1));
   };
 
   if (loadingChildren || loadingSchedule || loadingTeachers) {
@@ -645,31 +683,28 @@ const SchedulePage: React.FC = (): JSX.Element => {
           <div className="md:hidden">
             <div className="flex items-center justify-between mb-4">
               <Button
-                variant="outline"
-                onClick={() =>
-                  setCurrentDayIndex((prev) => Math.max(0, prev - 1))
-                }
+                variant="secondary"
+                onClick={() => handlePreviousDay()}
                 disabled={currentDayIndex === 0}
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="w-5 h-5" />
               </Button>
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowWeekCalendarModal(true)}
-                className="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-primary transition-colors"
+                className="flex items-center gap-2 text-lg font-semibold"
               >
-                <Calendar className="h-5 w-5" />
+                <Calendar className="w-5 h-5" />
                 {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
                   locale: ptBR,
                 })}
-              </button>
+              </Button>
               <Button
-                variant="outline"
-                onClick={() =>
-                  setCurrentDayIndex((prev) => Math.min(6, prev + 1))
-                }
+                variant="secondary"
+                onClick={() => handleNextDay()}
                 disabled={currentDayIndex === 6}
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="w-5 h-5" />
               </Button>
             </div>
             <div className="space-y-1">
@@ -914,31 +949,28 @@ const SchedulePage: React.FC = (): JSX.Element => {
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
             <Button
-              variant="outline"
-              onClick={() =>
-                setCurrentDayIndex((prev) => Math.max(0, prev - 1))
-              }
+              variant="secondary"
+              onClick={() => handlePreviousDay()}
               disabled={currentDayIndex === 0}
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="w-5 h-5" />
             </Button>
-            <button
+            <Button
+              variant="secondary"
               onClick={() => setShowWeekCalendarModal(true)}
-              className="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-primary transition-colors"
+              className="flex items-center gap-2 text-lg font-semibold"
             >
-              <Calendar className="h-5 w-5" />
+              <Calendar className="w-5 h-5" />
               {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
                 locale: ptBR,
               })}
-            </button>
+            </Button>
             <Button
-              variant="outline"
-              onClick={() =>
-                setCurrentDayIndex((prev) => Math.min(6, prev + 1))
-              }
+              variant="secondary"
+              onClick={() => handleNextDay()}
               disabled={currentDayIndex === 6}
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
           <div className="space-y-1">
