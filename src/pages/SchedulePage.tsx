@@ -164,43 +164,43 @@ const SchedulePage: React.FC = (): JSX.Element => {
       setLoadingSchedule(true);
       setScheduleError(null);
 
-      if (user.role === "RESPONSAVEL") {
-        const responsavelId = user.id;
-        try {
-          setLoadingChildren(true);
-          const response = await apiService.getChildrenByResponsible(
-            Number(responsavelId)
-          );
-          const formattedChildren = response.data.map((child: ApiChild) => ({
-            ...child,
-            id: String(child.id),
-          }));
-          setChildren(formattedChildren);
-          setSelectedChildren([]);
-        } catch (err) {
-          const error = err as AxiosError<{ message: string }>;
-          setChildrenError(
-            error.response?.data?.message || "Erro ao carregar seus filhos."
-          );
-        } finally {
-          setLoadingChildren(false);
-        }
+    if (user.role === "RESPONSAVEL") {
+      const responsavelId = user.id;
+      try {
+        setLoadingChildren(true);
+        const response = await apiService.getChildrenByResponsible(
+          Number(responsavelId)
+        );
+        const formattedChildren = response.data.map((child: ApiChild) => ({
+          ...child,
+          id: String(child.id),
+        }));
+        setChildren(formattedChildren);
+        setSelectedChildren([]);
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setChildrenError(
+          error.response?.data?.message || "Erro ao carregar seus filhos."
+        );
+      } finally {
+        setLoadingChildren(false);
+      }
 
-        try {
-          setLoadingTeachers(true);
-          const teachersResponse = await apiService.getTeachers();
-          setTeachers(teachersResponse.data);
-          if (teachersResponse.data.length > 0) {
-            setSelectedTeacherId(String(teachersResponse.data[0].id));
-          }
-        } catch (err) {
-          const error = err as AxiosError<{ message: string }>;
-          setTeachersError(
-            error.response?.data?.message || "Erro ao carregar professoras."
-          );
-        } finally {
-          setLoadingTeachers(false);
+      try {
+        setLoadingTeachers(true);
+        const teachersResponse = await apiService.getTeachers();
+        setTeachers(teachersResponse.data);
+        if (teachersResponse.data.length > 0) {
+          setSelectedTeacherId(String(teachersResponse.data[0].id));
         }
+      } catch (err) {
+        const error = err as AxiosError<{ message: string }>;
+        setTeachersError(
+          error.response?.data?.message || "Erro ao carregar professoras."
+        );
+      } finally {
+        setLoadingTeachers(false);
+      }
       }
 
       // Busca os agendamentos para todos os tipos de usuário
@@ -213,14 +213,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
         setHorariosComAlunos(horariosResponse);
       } catch (error) {
         console.error('Erro ao buscar horários:', error);
-        setScheduleError("Não foi possível carregar os agendamentos.");
+          setScheduleError("Não foi possível carregar os agendamentos.");
       }
     } catch (error) {
       console.error('Erro geral:', error);
       setScheduleError("Ocorreu um erro ao carregar os dados.");
-    } finally {
-      setLoadingSchedule(false);
-    }
+        } finally {
+          setLoadingSchedule(false);
+        }
   };
 
   useEffect(() => {
@@ -247,8 +247,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     // Busca inicial
     fetchData();
 
-    // Atualiza a cada 30 segundos
-    const interval = setInterval(fetchData, 30000);
+    // Atualiza a cada 60 segundos
+    const interval = setInterval(fetchData, 60000);
 
     // Cleanup
     return () => clearInterval(interval);
@@ -258,7 +258,6 @@ const SchedulePage: React.FC = (): JSX.Element => {
   function getAlunosAgendados(date: string, time: string): { alunos: string[]; studentIds: string[] } {
     // Se não tiver dados, retorna array vazio
     if (!horariosComAlunos || !Array.isArray(horariosComAlunos)) {
-      console.log('Sem horários:', horariosComAlunos);
       return { alunos: [], studentIds: [] };
     }
 
@@ -266,18 +265,6 @@ const SchedulePage: React.FC = (): JSX.Element => {
     const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
     return horario ? { alunos: horario.alunos, studentIds: horario.studentIds } : { alunos: [], studentIds: [] };
   }
-
-  // Adiciona useEffect para monitorar mudanças nos agendamentos
-  useEffect(() => {
-    if (horariosComAlunos.length > 0) {
-      console.log('Horários com alunos atualizados:', horariosComAlunos);
-    }
-  }, [horariosComAlunos]);
-
-  // Adiciona useEffect para debug
-  useEffect(() => {
-    console.log('Estado atual dos horários:', horariosComAlunos);
-  }, [horariosComAlunos]);
 
   // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
@@ -320,8 +307,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     }
 
     // Se chegou aqui, pode agendar
-    setSelectedSlot({ date, time });
-    setShowBookingModal(true);
+      setSelectedSlot({ date, time });
+      setShowBookingModal(true);
   };
 
   // Handle booking confirmation
@@ -394,67 +381,87 @@ const SchedulePage: React.FC = (): JSX.Element => {
     studentName: string
   ) => {
     try {
-      console.log('Iniciando cancelamento para:', { date, time, studentName });
+      console.log('[handleCancelSchedule] Iniciando cancelamento para:', { date, time, studentName });
+      setIsCanceling(true);
+      toast.loading('Cancelando agendamento...');
       
       // Busca o ID do aluno pelo nome
       const student = children.find(child => child.name === studentName);
       if (!student) {
-        console.error('Aluno não encontrado:', studentName);
+        console.error('[handleCancelSchedule] Aluno não encontrado:', studentName);
         toast.error('Aluno não encontrado');
         return;
       }
-      console.log('Aluno encontrado:', student);
+      console.log('[handleCancelSchedule] Aluno encontrado:', student);
 
-      // Busca todos os agendamentos
-      const response = await apiService.getAllSchedules();
-      const schedules = response.data;
-      console.log('Todos os agendamentos:', schedules);
-      
-      // Encontra o agendamento específico
-      const schedule = schedules.find((s: ScheduleDTO) => {
-        const scheduleDate = s.startTime.split('T')[0];
-        const scheduleTime = s.startTime.split('T')[1].substring(0, 5);
-        const match = s.studentId === Number(student.id) &&
-               scheduleDate === date &&
-               scheduleTime === time;
-        if (match) {
-          console.log('Agendamento encontrado:', s);
-        }
-        return match;
-      });
+      // Busca o horário específico nos horários com alunos
+      const horarioComAluno = horariosComAlunos.find(h => 
+        h.dia === date && 
+        h.hora === time && 
+        h.alunos.includes(studentName)
+      );
 
-      if (!schedule) {
-        console.error('Agendamento não encontrado para:', { date, time, studentId: student.id });
-        toast.error('Agendamento não encontrado');
+      if (!horarioComAluno) {
+        console.error('[handleCancelSchedule] Horário não encontrado para:', { date, time, studentName });
+        toast.error('Horário não encontrado');
         return;
       }
 
-      console.log('Deletando agendamento:', schedule.id);
-      // Deleta o agendamento
-      await apiService.deleteSchedule(schedule.id);
-      console.log('Agendamento deletado com sucesso');
+      // Pega o ID do agendamento
+      const studentIndex = horarioComAluno.alunos.indexOf(studentName);
+      const scheduleId = Number(horarioComAluno.studentIds[studentIndex]);
+
+      if (!scheduleId || isNaN(scheduleId)) {
+        console.error('[handleCancelSchedule] ID do agendamento não encontrado ou inválido:', scheduleId);
+        toast.error('ID do agendamento não encontrado ou inválido');
+        return;
+      }
+
+      console.log('[handleCancelSchedule] Cancelando agendamento:', scheduleId);
       
-      // Atualiza os dados
-      await fetchSchedule(); // Atualiza todos os dados, incluindo filhos e agendamentos
-      const horariosResponse = await scheduleService.getSchedulesWithStudents();
-      setHorariosComAlunos(horariosResponse);
+      // Cancela o agendamento
+      await scheduleService.cancelSchedule(String(scheduleId));
+      console.log('[handleCancelSchedule] Agendamento cancelado com sucesso');
+      
+      // Atualiza a interface imediatamente
+      setHorariosComAlunos(prevHorarios => {
+        const novosHorarios = prevHorarios.map(h => {
+          if (h.dia === date && h.hora === time) {
+            return {
+              ...h,
+              alunos: h.alunos.filter(a => a !== studentName),
+              studentIds: h.studentIds.filter((_, idx) => idx !== studentIndex)
+            };
+          }
+          return h;
+        }).filter(h => h.alunos.length > 0);
+        
+        return novosHorarios;
+      });
       
       // Atualiza a lista do modal
       if (modalAlunos) {
         const updatedAlunos = modalAlunos.filter(a => a !== studentName);
         if (updatedAlunos.length === 0) {
           setModalAlunos(null);
-          setShowCancelConfirmModal({ show: false });
         } else {
           setModalAlunos(updatedAlunos);
         }
       }
 
-      toast.success(`Aula de ${studentName} desagendada com sucesso!`);
-    } catch (error) {
-      console.error('Erro ao desagendar:', error);
-      toast.error(`Erro ao desagendar aula de ${studentName}. Tente novamente.`);
-      throw error;
+      // Fecha os modais
+      setShowCancelConfirmModal({ show: false });
+      
+      toast.success(`Aula de ${studentName} cancelada com sucesso!`);
+      
+      // Atualiza os dados do backend
+      await fetchSchedule();
+    } catch (error: any) {
+      console.error('[handleCancelSchedule] Erro ao cancelar:', error);
+      toast.error(error.message || 'Erro ao cancelar agendamento. Tente novamente.');
+    } finally {
+      setIsCanceling(false);
+      toast.dismiss();
     }
   };
 
@@ -1233,18 +1240,35 @@ const SchedulePage: React.FC = (): JSX.Element => {
               </button>
               <button
                 onClick={async () => {
+                  if (!showCancelConfirmModal.date || !showCancelConfirmModal.time || !showCancelConfirmModal.studentName) {
+                    console.error('[CancelButton] Dados incompletos:', showCancelConfirmModal);
+                    toast.error('Erro: Dados incompletos para cancelamento');
+                    return;
+                  }
+
                   try {
                     setIsCanceling(true);
-                    if (showCancelConfirmModal.date && showCancelConfirmModal.time && showCancelConfirmModal.studentName) {
-                      await handleCancelSchedule(
-                        showCancelConfirmModal.date,
-                        showCancelConfirmModal.time,
-                        showCancelConfirmModal.studentName
-                      );
-                      setShowCancelConfirmModal({ show: false });
-                    }
+                    console.log('[CancelButton] Iniciando cancelamento com dados:', {
+                      date: showCancelConfirmModal.date,
+                      time: showCancelConfirmModal.time,
+                      studentName: showCancelConfirmModal.studentName
+                    });
+
+                    await handleCancelSchedule(
+                      showCancelConfirmModal.date,
+                      showCancelConfirmModal.time,
+                      showCancelConfirmModal.studentName
+                    );
+
+                    // Fecha o modal apenas se o cancelamento foi bem sucedido
+                    setShowCancelConfirmModal({ show: false });
+                    setModalAlunos(null); // Fecha também o modal de alunos
+                    
+                    // Atualiza a lista de agendamentos
+                    await fetchSchedule();
                   } catch (error) {
-                    console.error('Erro ao cancelar agendamento:', error);
+                    console.error('[CancelButton] Erro ao cancelar:', error);
+                    toast.error('Erro ao cancelar agendamento. Tente novamente.');
                   } finally {
                     setIsCanceling(false);
                   }
@@ -1303,12 +1327,39 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   {user?.role === "RESPONSAVEL" && (
                     <button
                       onClick={() => {
-                        setShowCancelConfirmModal({
-                          show: true,
-                          date: selectedSlot?.date,
-                          time: selectedSlot?.time,
-                          studentName: aluno
+                        console.log('[CancelButton] Dados atuais:', {
+                          aluno,
+                          horariosComAlunos,
+                          selectedSlot
                         });
+
+                        // Encontra o horário do aluno para o dia atual
+                        const horarioComAluno = horariosComAlunos.find(h => {
+                          const match = h.alunos.includes(aluno);
+                          console.log('[CancelButton] Verificando horário:', {
+                            horario: h,
+                            aluno,
+                            match
+                          });
+                          return match;
+                        });
+                        
+                        if (horarioComAluno) {
+               console.log('[CancelButton] Horário encontrado:', horarioComAluno);
+                    
+                          // Atualiza a interface imediatamente
+                          setModalAlunos(prev => prev ? prev.filter(a => a !== aluno) : null);
+                          
+                          setShowCancelConfirmModal({
+                            show: true,
+                            date: horarioComAluno.dia,
+                            time: horarioComAluno.hora,
+                            studentName: aluno
+                          });
+                        } else {
+                          console.error('[CancelButton] Horário não encontrado para:', aluno);
+                          toast.error('Não foi possível encontrar o horário da aula');
+                        }
                       }}
                       className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 text-sm"
                     >
@@ -1359,21 +1410,46 @@ const SchedulePage: React.FC = (): JSX.Element => {
           <div className="flex flex-col items-center p-4">
             <div className="flex space-x-4 mb-2">
               <button
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                onClick={() => {
-                  handleCancelSchedule(
-                    slotActionData.date,
-                    slotActionData.time,
-                    slotActionData.childName
-                  );
-                  setShowSlotActionModal(false);
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
+                disabled={isCanceling}
+                onClick={async () => {
+                  try {
+                    setIsCanceling(true);
+                    toast.loading('Cancelando agendamento...');
+                    
+                    await handleCancelSchedule(
+                      slotActionData.date,
+                      slotActionData.time,
+                      slotActionData.childName
+                    );
+                    
+                    setShowSlotActionModal(false);
+                    toast.success(`Aula de ${slotActionData.childName} cancelada com sucesso!`);
+                  } catch (error) {
+                    console.error('[SlotActionModal] Erro ao cancelar:', error);
+                    toast.error('Erro ao cancelar agendamento. Tente novamente.');
+                  } finally {
+                    setIsCanceling(false);
+                    toast.dismiss();
+                  }
                 }}
               >
-                Sim, cancelar
+                {isCanceling ? (
+                  <div className="flex items-center">
+                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Cancelando...
+                  </div>
+                ) : (
+                  'Sim, cancelar'
+                )}
               </button>
               <button
                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
                 onClick={() => setShowSlotActionModal(false)}
+                disabled={isCanceling}
               >
                 Não, manter
               </button>

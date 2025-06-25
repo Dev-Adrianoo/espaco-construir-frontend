@@ -6,7 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthFlow from "./pages/auth-flow-react";
 import MainLayout from "./layouts/MainLayout";
@@ -17,15 +17,14 @@ import HistoryPage from "./pages/HistoryPage";
 import RegisterResponsiblePage from "./pages/RegisterResponsiblePage";
 import RegisterTeacherPage from "./pages/RegisterTeacherPage";
 import ChildrenDashboardPage from "./pages/ChildrenDashboardPage";
+import GuardianDashboard from "./pages/GuardianDashboard";
 
-function App() {
+function AppRoutes() {
+  const { user } = useAuth();
+
   return (
-    <Router>
-      <AuthProvider>
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<AuthFlow />} />
-          <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/" element={<AuthFlow />} />
 
           {/* Protected routes for teachers */}
           <Route
@@ -38,6 +37,31 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+      {/* Protected routes for parents */}
+      <Route
+        path="/guardian-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["RESPONSAVEL"]}>
+            <MainLayout userType="RESPONSAVEL">
+              <GuardianDashboard />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/register-child"
+        element={
+          <ProtectedRoute allowedRoles={["RESPONSAVEL", "PROFESSORA"]}>
+            <MainLayout userType={user?.role || "RESPONSAVEL"}>
+              <ChildRegistrationPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Protected routes for teachers */}
           <Route
             path="/students"
             element={
@@ -116,6 +140,14 @@ function App() {
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
         <Toaster />
       </AuthProvider>
     </Router>

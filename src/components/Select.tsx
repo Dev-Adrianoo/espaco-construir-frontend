@@ -7,7 +7,7 @@ type Option = {
 
 type SelectProps = {
   label: string;
-  options: Option[];
+  options?: Option[];
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   required?: boolean;
@@ -17,6 +17,7 @@ type SelectProps = {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  children?: React.ReactNode;
 };
 
 const Select: React.FC<SelectProps> = ({
@@ -31,6 +32,7 @@ const Select: React.FC<SelectProps> = ({
   className = '',
   placeholder,
   disabled = false,
+  children,
 }) => {
   return (
     <div className={`mb-4 ${className}`}>
@@ -58,11 +60,11 @@ const Select: React.FC<SelectProps> = ({
             {placeholder}
           </option>
         )}
-        {options.map((option) => (
+        {options ? options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
-        ))}
+        )) : children}
       </select>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

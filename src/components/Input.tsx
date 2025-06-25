@@ -14,6 +14,8 @@ type InputProps = {
   maxLength?: number;
   disabled?: boolean;
   readOnly?: boolean;
+  max?: string;  // Para inputs do tipo date
+  min?: string;  // Para inputs do tipo date
 };
 
 const Input: React.FC<InputProps> = ({
@@ -30,6 +32,8 @@ const Input: React.FC<InputProps> = ({
   maxLength,
   disabled,
   readOnly,
+  max,
+  min,
 }) => {
   return (
     <div className={`mb-4 ${className}`}>
@@ -56,6 +60,8 @@ const Input: React.FC<InputProps> = ({
         maxLength={maxLength}
         disabled={disabled}
         readOnly={readOnly}
+        max={max}
+        min={min}
       />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
@@ -63,3 +69,4 @@ const Input: React.FC<InputProps> = ({
 };
 
 export default Input;
+export type { InputProps };

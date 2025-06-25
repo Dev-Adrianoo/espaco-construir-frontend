@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: '/api',
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -156,7 +156,12 @@ export const apiService = {
 
   deleteSchedule: (scheduleId: number) => api.delete(`/schedules/${scheduleId}`),
 
-  
+  // Método corrigido para cancelar agendamento - usando query parameter
+  cancelSchedule: (scheduleId: number) => {
+    console.log('[apiService.cancelSchedule] Cancelando agendamento:', scheduleId);
+    return api.put(`/schedules/${scheduleId}/status?status=CANCELLED`);
+  },
+
   getAllSchedules: () => api.get<ScheduleDTO[]>(`/schedules`),
 
   // Novo endpoint para refresh token

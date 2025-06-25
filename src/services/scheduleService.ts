@@ -1,4 +1,4 @@
-import api from './api';
+import api, { apiService } from './api';
 import { ScheduleDTO } from './api';
 
 export interface Schedule {
@@ -32,7 +32,8 @@ export interface ScheduleWithStudents {
   dia: string;
   hora: string;
   alunos: string[];
-  studentIds: string[];
+  studentIds: number[];
+  scheduleIds: number[];  // IDs dos agendamentos retornados pela API
 }
 
 const scheduleService = {
@@ -60,9 +61,37 @@ const scheduleService = {
     return response.data;
   },
 
-  async cancelSchedule(id: string): Promise<Schedule> {
-    const response = await api.put<Schedule>(`/schedules/${id}/cancel`);
-    return response.data;
+  async cancelSchedule(id: string): Promise<void> {
+    try {
+      console.log('[scheduleService.cancelSchedule] Iniciando cancelamento do agendamento:', id);
+      
+      if (!id) {
+        throw new Error('ID do agendamento não fornecido');
+      }
+
+      const scheduleId = Number(id);
+      if (isNaN(scheduleId)) {
+        throw new Error('ID do agendamento inválido');
+      }
+      
+      // Tenta cancelar o agendamento usando o endpoint correto
+      console.log('[scheduleService.cancelSchedule] Enviando requisição de cancelamento para ID:', scheduleId);
+      await apiService.cancelSchedule(scheduleId);
+      console.log('[scheduleService.cancelSchedule] Agendamento cancelado com sucesso');
+    } catch (error: any) {
+      console.error('[scheduleService.cancelSchedule] Erro ao cancelar agendamento:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+
+      // Se for erro 403, adiciona uma mensagem mais clara
+      if (error.response?.status === 403) {
+        error.message = 'Você não tem permissão para cancelar este agendamento';
+      }
+
+      throw error;
+    }
   },
 
   async getAvailableSlots(teacherId: string, date: string): Promise<string[]> {
@@ -74,12 +103,14 @@ const scheduleService = {
 
   async getSchedulesWithStudents(guardianId?: string, teacherId?: string): Promise<ScheduleWithStudents[]> {
     try {
+      console.log('[getSchedulesWithStudents] Iniciando busca com:', { guardianId, teacherId });
       let agendamentos;
 
       if (guardianId) {
         // Se temos um guardianId, primeiro buscamos os filhos deste responsável
         const childrenResponse = await api.get(`/guardians/children?responsavelId=${guardianId}`);
         const children = childrenResponse.data;
+        console.log('[getSchedulesWithStudents] Filhos encontrados:', children);
         
         // Depois buscamos os agendamentos de cada filho
         const schedulesPromises = children.map((child: any) => 
@@ -98,10 +129,19 @@ const scheduleService = {
         agendamentos = response.data;
       }
 
-      console.log('Resposta dos agendamentos:', agendamentos);
+      console.log('[getSchedulesWithStudents] Agendamentos encontrados:', agendamentos);
+
+      // Filtra os agendamentos cancelados
+      agendamentos = agendamentos.filter((agendamento: any) => agendamento.status !== 'CANCELLED');
+      console.log('[getSchedulesWithStudents] Agendamentos após filtro de cancelados:', agendamentos);
 
       // Vamos transformar os dados no formato que precisamos
       const horariosAgrupados = agendamentos.reduce((acc: ScheduleWithStudents[], agendamento: any) => {
+        if (!agendamento.startTime) {
+          console.warn('[getSchedulesWithStudents] Agendamento sem startTime:', agendamento);
+          return acc;
+        }
+
         const dia = agendamento.startTime.split('T')[0];
         const hora = agendamento.startTime.split('T')[1].substring(0, 5);
         
@@ -109,29 +149,33 @@ const scheduleService = {
         const horarioExistente = acc.find(h => h.dia === dia && h.hora === hora);
         
         if (horarioExistente) {
-          // Se existe, adiciona o aluno à lista
+          // Se existe e temos um novo aluno, adiciona à lista
           if (agendamento.studentName && !horarioExistente.alunos.includes(agendamento.studentName)) {
             horarioExistente.alunos.push(agendamento.studentName);
-            horarioExistente.studentIds.push(String(agendamento.studentId));
+            horarioExistente.studentIds.push(Number(agendamento.studentId));
+            horarioExistente.scheduleIds.push(Number(agendamento.id));  // ID do agendamento
           }
         } else {
           // Se não existe, cria um novo horário
-          acc.push({
-            dia,
-            hora,
-            alunos: agendamento.studentName ? [agendamento.studentName] : [],
-            studentIds: agendamento.studentId ? [String(agendamento.studentId)] : []
-          });
+          if (agendamento.studentName) {
+            acc.push({
+              dia,
+              hora,
+              alunos: [agendamento.studentName],
+              studentIds: [Number(agendamento.studentId)],
+              scheduleIds: [Number(agendamento.id)]  // ID do agendamento
+            });
+          }
         }
         
         return acc;
       }, []);
 
-      console.log('Horários agrupados:', horariosAgrupados);
+      console.log('[getSchedulesWithStudents] Horários agrupados:', horariosAgrupados);
       return horariosAgrupados;
     } catch (error) {
-      console.error('Erro ao buscar agendamentos:', error);
-      return [];
+      console.error('[getSchedulesWithStudents] Erro ao buscar agendamentos:', error);
+      throw error;
     }
   }
 };
