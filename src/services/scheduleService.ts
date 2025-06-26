@@ -125,7 +125,7 @@ const scheduleService = {
         agendamentos = response.data;
       } else {
         // Se não temos guardianId nem teacherId, buscamos todos os agendamentos
-        const response = await api.get('/schedules');
+      const response = await api.get('/schedules');
         agendamentos = response.data;
       }
 
@@ -158,13 +158,13 @@ const scheduleService = {
         } else {
           // Se não existe, cria um novo horário
           if (agendamento.studentName) {
-            acc.push({
-              dia,
-              hora,
+          acc.push({
+            dia,
+            hora,
               alunos: [agendamento.studentName],
               studentIds: [Number(agendamento.studentId)],
               scheduleIds: [Number(agendamento.id)]  // ID do agendamento
-            });
+          });
           }
         }
         

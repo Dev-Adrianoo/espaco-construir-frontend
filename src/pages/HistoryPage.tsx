@@ -33,7 +33,7 @@ interface HistoryRecord {
 }
 
 const HistoryPage: React.FC = () => {
-  const [selectedChild, setSelectedChild] = useState<string>("all");
+  const [selectedChild, setSelectedChild] = useState<string>("");
   const [children, setChildren] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState<boolean>(true);
   const [childrenError, setChildrenError] = useState<string | null>(null);
@@ -157,35 +157,49 @@ const HistoryPage: React.FC = () => {
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!children.length) {
+        setHistoryRecords([]);
+        setLoadingHistory(false);
+        return;
+      }
+
       setLoadingHistory(true);
       setHistoryError(null);
+
       try {
-        if (selectedChild !== "all") {
+        if (selectedChild) {
+          console.log("Buscando histórico para aluno específico:", selectedChild);
           const res = await apiService.getStudentHistory(selectedChild);
           setHistoryRecords(res.data);
-          console.log("Buscando histórico para:", selectedChild, res.data);
+          console.log("Histórico recebido:", res.data);
         } else {
+          console.log("Buscando histórico para todos os alunos");
           const allHistory: HistoryRecord[] = [];
           for (const child of children) {
+            try {
             const res = await apiService.getStudentHistory(child.id);
             allHistory.push(...res.data);
-            console.log("Buscando histórico para:", child.id, res.data);
+              console.log("Histórico recebido para", child.name, ":", res.data);
+            } catch (childError) {
+              console.error("Erro ao buscar histórico do aluno", child.name, ":", childError);
+              // Continua buscando os outros históricos mesmo se um falhar
+            }
           }
           setHistoryRecords(allHistory);
           console.log("Todos os históricos:", allHistory);
         }
-      } catch (err) {
-        setHistoryError("Não foi possível carregar o histórico de aulas.");
+      } catch (err: any) {
+        console.error("Erro ao carregar histórico:", err);
+        setHistoryError(
+          err.response?.data?.message || 
+          "Erro ao carregar histórico. Por favor, tente novamente mais tarde."
+        );
       } finally {
         setLoadingHistory(false);
       }
     };
-    if (children.length > 0) {
+
       fetchHistory();
-    } else {
-      setHistoryRecords([]);
-      setLoadingHistory(false);
-    }
   }, [selectedChild, children]);
 
   useEffect(() => {
@@ -300,7 +314,7 @@ const HistoryPage: React.FC = () => {
                 </label>
                 <select
                   id="filterChild"
-                  value={selectedChild || ""}
+                  value={selectedChild}
                   onChange={(e) => setSelectedChild(e.target.value)}
                   className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -319,13 +333,13 @@ const HistoryPage: React.FC = () => {
                 </div>
               ) : historyError ? (
                 <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <p className="text-red-600">Erro ao carregar histórico. Tente novamente mais tarde.</p>
+                  <p className="text-red-600">{historyError}</p>
                 </div>
               ) : historyRecords.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-24 h-24 mx-auto mb-4">
                     <img
-                      src="/src/images/espaco-construir-logo.jpeg"
+                      src={logoEspacoConstruir}
                       alt="Espaço Construir"
                       className="w-full h-full object-contain rounded-full"
                     />
@@ -342,7 +356,7 @@ const HistoryPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {uniqueHistory.map((record) => {
+                  {filteredHistory.map((record) => {
                     const childName =
                       children.find(
                         (c) => String(c.id) === String(record.studentId)
@@ -395,7 +409,7 @@ const HistoryPage: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
         
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
           <p className="text-gray-600 mb-6">
             Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
           </p>
@@ -407,7 +421,7 @@ const HistoryPage: React.FC = () => {
               </label>
               <select
                 id="filterChild"
-                value={selectedChild || ""}
+                value={selectedChild}
                 onChange={(e) => setSelectedChild(e.target.value)}
                 className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               >
@@ -426,13 +440,13 @@ const HistoryPage: React.FC = () => {
               </div>
             ) : historyError ? (
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <p className="text-red-600">Erro ao carregar histórico. Tente novamente mais tarde.</p>
+                <p className="text-red-600">{historyError}</p>
               </div>
             ) : historyRecords.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-24 h-24 mx-auto mb-4">
                   <img
-                    src="/src/images/espaco-construir-logo.jpeg"
+                    src={logoEspacoConstruir}
                     alt="Espaço Construir"
                     className="w-full h-full object-contain rounded-full"
                   />
@@ -449,7 +463,7 @@ const HistoryPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {uniqueHistory.map((record) => {
+                {filteredHistory.map((record) => {
                   const childName =
                     children.find(
                       (c) => String(c.id) === String(record.studentId)

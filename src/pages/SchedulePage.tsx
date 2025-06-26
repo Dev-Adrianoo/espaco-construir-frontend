@@ -78,7 +78,8 @@ interface ScheduleWithStudents {
   dia: string;
   hora: string;
   alunos: string[];
-  studentIds: string[];
+  studentIds: number[];
+  scheduleIds: number[];  // IDs dos agendamentos retornados pela API
 }
 
 const SchedulePage: React.FC = (): JSX.Element => {
@@ -263,7 +264,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
     // Procura o horário específico
     const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
-    return horario ? { alunos: horario.alunos, studentIds: horario.studentIds } : { alunos: [], studentIds: [] };
+    return horario ? { alunos: horario.alunos, studentIds: horario.studentIds.map(String) } : { alunos: [], studentIds: [] };
   }
 
   // Handle slot click
@@ -409,7 +410,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
       // Pega o ID do agendamento
       const studentIndex = horarioComAluno.alunos.indexOf(studentName);
-      const scheduleId = Number(horarioComAluno.studentIds[studentIndex]);
+      const scheduleId = Number(horarioComAluno.scheduleIds[studentIndex]);
 
       if (!scheduleId || isNaN(scheduleId)) {
         console.error('[handleCancelSchedule] ID do agendamento não encontrado ou inválido:', scheduleId);
@@ -1254,14 +1255,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
                       studentName: showCancelConfirmModal.studentName
                     });
 
-                    await handleCancelSchedule(
-                      showCancelConfirmModal.date,
-                      showCancelConfirmModal.time,
-                      showCancelConfirmModal.studentName
-                    );
+                      await handleCancelSchedule(
+                        showCancelConfirmModal.date,
+                        showCancelConfirmModal.time,
+                        showCancelConfirmModal.studentName
+                      );
 
                     // Fecha o modal apenas se o cancelamento foi bem sucedido
-                    setShowCancelConfirmModal({ show: false });
+                      setShowCancelConfirmModal({ show: false });
                     setModalAlunos(null); // Fecha também o modal de alunos
                     
                     // Atualiza a lista de agendamentos
@@ -1350,12 +1351,12 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           // Atualiza a interface imediatamente
                           setModalAlunos(prev => prev ? prev.filter(a => a !== aluno) : null);
                           
-                          setShowCancelConfirmModal({
-                            show: true,
+                        setShowCancelConfirmModal({
+                          show: true,
                             date: horarioComAluno.dia,
                             time: horarioComAluno.hora,
-                            studentName: aluno
-                          });
+                          studentName: aluno
+                        });
                         } else {
                           console.error('[CancelButton] Horário não encontrado para:', aluno);
                           toast.error('Não foi possível encontrar o horário da aula');
@@ -1377,18 +1378,19 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 {getFilhosDisponiveis(selectedSlot?.time || '').length > 0 ? (
                   <button
                     onClick={() => {
-                      if (selectedSlot) {
+                      if (slotActionData) {
                         setModalAlunos(null);
-                        setSelectedSlot(selectedSlot);
+                        setSelectedSlot({
+                          date: slotActionData.date,
+                          time: slotActionData.time
+                        });
+                        setShowSlotActionModal(false);
                         setShowBookingModal(true);
                       }
                     }}
-                    className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors w-full"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Agendar outro filho
+                    Adicionar outro filho a esta aula
                   </button>
                 ) : (
                   <span className="text-sm text-gray-500">
@@ -1418,12 +1420,12 @@ const SchedulePage: React.FC = (): JSX.Element => {
                     toast.loading('Cancelando agendamento...');
                     
                     await handleCancelSchedule(
-                      slotActionData.date,
-                      slotActionData.time,
-                      slotActionData.childName
-                    );
+                    slotActionData.date,
+                    slotActionData.time,
+                    slotActionData.childName
+                  );
                     
-                    setShowSlotActionModal(false);
+                  setShowSlotActionModal(false);
                     toast.success(`Aula de ${slotActionData.childName} cancelada com sucesso!`);
                   } catch (error) {
                     console.error('[SlotActionModal] Erro ao cancelar:', error);

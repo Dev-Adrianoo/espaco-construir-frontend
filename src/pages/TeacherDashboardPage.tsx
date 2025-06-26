@@ -20,11 +20,12 @@ import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import Textarea from "../components/Textarea";
 import SuccessModal from "../components/SuccessModal";
+import studentService from "../services/studentService";
 
 // Interface para as aulas agendadas (incluindo dados basicos do aluno para exibicao rapida)
 interface ScheduledClass {
   id: string;
-  studentId: string;
+  studentId: number;
   studentName: string;
   age: number;
   grade: string;
@@ -42,7 +43,7 @@ interface ScheduledClass {
 
 // Interface para os detalhes completos do aluno (TeacherStudent do backend)
 interface StudentDetails {
-  id: string;
+  id: number;
   name: string;
   age: number;
   grade: string;
@@ -79,6 +80,8 @@ const TeacherDashboardPage: React.FC = () => {
   const [studentDetailsModalData, setStudentDetailsModalData] =
     useState<StudentDetails | null>(null);
 
+  const [currentGuardianId, setCurrentGuardianId] = useState<number | null>(null);
+
   useEffect(() => {
     console.log(
       "[TeacherDashboardPage] useEffect - user:",
@@ -110,7 +113,7 @@ const TeacherDashboardPage: React.FC = () => {
         );
         const mappedStudents: StudentDetails[] = studentsResponse.data.map(
           (s) => ({
-            id: String(s.id),
+            id: Number(s.id),
             name: s.name,
             age: s.age !== null && s.age !== undefined ? Number(s.age) : 0,
             grade: s.grade ?? '',
@@ -138,7 +141,7 @@ const TeacherDashboardPage: React.FC = () => {
             const duration =
               (endTime.getTime() - startTime.getTime()) / (1000 * 60); // Duration in minutes
             const student = mappedStudents.find(
-              (s) => s.id === String(schedule.studentId)
+              (s) => s.id === Number(schedule.studentId)
             );
 
             let classType: "presencial" | "online";
@@ -158,7 +161,7 @@ const TeacherDashboardPage: React.FC = () => {
 
             return {
               id: String(schedule.id),
-              studentId: String(schedule.studentId),
+              studentId: Number(schedule.studentId),
               studentName:
                 schedule.studentName || student?.name || "Aluno Desconhecido",
               age: student?.age || 0,
@@ -195,7 +198,7 @@ const TeacherDashboardPage: React.FC = () => {
     (cls) => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
 
-  const getStudentDetails = (studentId: string) => {
+  const getStudentDetails = (studentId: number) => {
     return teacherStudents.find((student) => student.id === studentId);
   };
 
@@ -222,11 +225,17 @@ const TeacherDashboardPage: React.FC = () => {
     setStudentDetailsModalData(details);
   };
 
-  const handleOpenHistory = (studentId: string, classId: string) => {
-    setHistoryStudentId(studentId);
-    setHistoryClassId(classId);
-    setShowHistoryModal(true);
-    setHistoryText("");
+  const handleOpenHistory = async (studentId: string, classId: string) => {
+    try {
+      const student = await studentService.getStudent(studentId);
+      setCurrentGuardianId(student.guardianId);
+      setHistoryStudentId(studentId);
+      setHistoryClassId(classId);
+      setShowHistoryModal(true);
+      setHistoryText("");
+    } catch (error) {
+      console.error('Erro ao buscar dados do aluno:', error);
+    }
   };
 
   const handleCloseHistory = () => {
@@ -234,27 +243,24 @@ const TeacherDashboardPage: React.FC = () => {
     setHistoryStudentId(null);
     setHistoryClassId(null);
     setHistoryText("");
+    setCurrentGuardianId(null);
   };
 
   const handleSaveHistory = async () => {
-    if (!historyStudentId || !historyClassId || !user) {
+    if (!historyStudentId || !user) {
       return;
     }
     try {
-      await apiService.addStudentHistory({
-        studentId: historyStudentId,
-        classId: historyClassId,
-        teacherId: user.id,
-        comment: historyText,
+      await apiService.saveStudentHistory({
+        studentId: Number(historyStudentId),
+        teacherId: Number(user.id),
+        classId: historyClassId ? Number(historyClassId) : null,
+        comment: historyText
       });
       setShowSuccessModal(true);
-      setShowHistoryModal(false);
-      setHistoryStudentId(null);
-      setHistoryClassId(null);
-      setHistoryText("");
-      setTimeout(() => setShowSuccessModal(false), 2000);
-    } catch {
-      // (Opcional) Exibir erro
+      handleCloseHistory();
+    } catch (error) {
+      console.error('Erro ao salvar histórico:', error);
     }
   };
 
@@ -339,8 +345,12 @@ const TeacherDashboardPage: React.FC = () => {
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 flex flex-col items-center">
               <Calendar className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 mb-4">Nenhuma aula agendada para este dia.</p>
-              <Button variant="outline" className="flex items-center gap-2 text-blue-600 border-blue-400 font-semibold">
-                <Plus className="h-4 w-4" /> Adicionar Aula
+              <Button 
+                variant="secondary" 
+                className="flex items-center gap-2 text-blue-600 border-blue-400 font-semibold"
+              >
+                <Plus size={20} />
+                Adicionar Novo Aluno
               </Button>
             </div>
           ) : (
@@ -367,8 +377,14 @@ const TeacherDashboardPage: React.FC = () => {
                           <button className="p-1 rounded-full hover:bg-gray-200 transition-colors" title="Ver detalhes do aluno" onClick={() => handleViewStudent(scheduleItem)}>
                             <FileText className="h-5 w-5 text-gray-500" />
                           </button>
-                          <Button variant="outline" size="sm" onClick={() => handleOpenHistory(scheduleItem.studentId, scheduleItem.id)} disabled={!canAddHistory} data-title={canAddHistory ? "Adicionar histórico" : "Só é possível adicionar histórico após a aula"} className="border-gray-300 text-gray-700">
-                            Histórico
+                          <Button 
+                            variant="secondary"
+                            className="p-1"
+                            onClick={() => handleOpenHistory(scheduleItem.studentId.toString(), scheduleItem.id)} 
+                            disabled={!canAddHistory} 
+                            data-title={canAddHistory ? "Adicionar histórico" : "Só é possível adicionar histórico após a aula"}
+                          >
+                            <MessageSquare size={16} />
                           </Button>
                         </div>
                       </div>
@@ -382,178 +398,140 @@ const TeacherDashboardPage: React.FC = () => {
       </div>
       {/* Student Details Modal */}
       {studentDetailsModalData && (
-        <div
-          className="fixed inset-0 z-10 overflow-y-auto"
-          aria-labelledby="modal-title"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              aria-hidden="true"
-            ></div>
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              {(() => {
-                const student = studentDetailsModalData;
-                return (
-                  <>
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                      <div className="sm:flex sm:items-start">
-                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                          <h3
-                            className="text-lg leading-6 font-medium text-gray-900"
-                            id="modal-title"
-                          >
-                            Detalhes do Aluno
-                          </h3>
-                          <div className="mt-4 border-t border-gray-200 pt-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-500">
-                                  Nome
-                                </h4>
-                                <p className="mt-1 text-gray-900">
-                                  {student.name}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-500">
-                                  Idade
-                                </h4>
-                                <p className="mt-1 text-gray-900">
-                                  {typeof student.age === 'number' && student.age > 0 ? `${student.age} anos` : "Não informada"}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-500">
-                                  Série
-                                </h4>
-                                <p className="mt-1 text-gray-900">
-                                  {student.grade ? student.grade : "Não informada"}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-500">
-                                  Tipo de Aula
-                                </h4>
-                                <p className="mt-1 text-gray-900">
-                                  {student.classType === "ONLINE"
-                                    ? "Online"
-                                    : "Presencial"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mt-4">
-                              <h4 className="text-sm font-medium text-gray-500">
-                                Dificuldades de Aprendizagem
-                              </h4>
-                              <p className="mt-1 text-gray-900">
-                                {student.learningDifficulties ||
-                                  "Nenhuma informada"}
-                              </p>
-                            </div>
-                            <div className="mt-4">
-                              <h4 className="text-sm font-medium text-gray-500">
-                                Condição Pessoal
-                              </h4>
-                              <p className="mt-1 text-gray-900">
-                                {student.personalCondition ||
-                                  "Nenhuma informada"}
-                              </p>
-                            </div>
-                            <div className="mt-4 border-t border-gray-200 pt-4">
-                              <h4 className="text-sm font-medium text-gray-500">
-                                Informações dos Responsáveis
-                              </h4>
-                              <p className="mt-1 text-gray-900">
-                                {student.parentName || "Não informado"}
-                              </p>
-                              <div className="mt-2 flex space-x-4">
-                                <a
-                                  href={`tel:${student.parentContact}`}
-                                  className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
-                                >
-                                  <Phone className="h-4 w-4 mr-1" />
-                                  Ligar
-                                </a>
-                                <a
-                                  href="#"
-                                  className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
-                                  onClick={() =>
-                                    alert(
-                                      "Mensagem do WhatsApp será enviada aqui"
-                                    )
-                                  }
-                                >
-                                  <MessageSquare className="h-4 w-4 mr-1" />
-                                  WhatsApp
-                                </a>
-                                <a
-                                  href={`mailto:parent@example.com`}
-                                  className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
-                                >
-                                  <Mail className="h-4 w-4 mr-1" />
-                                  E-mail
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                      <Button
-                        onClick={() => setStudentDetailsModalData(null)}
-                        className="w-full sm:w-auto sm:ml-3"
-                      >
-                        Fechar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          alert(
-                            "Funcionalidade de edição será implementada aqui"
-                          )
-                        }
-                        className="mt-3 w-full sm:mt-0 sm:w-auto sm:mr-3"
-                      >
-                        Editar Aluno
-                      </Button>
-                    </div>
-                  </>
-                );
-              })()}
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">Detalhes do Aluno</h2>
+            <div className="mt-4 border-t border-gray-200 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Nome
+                  </h4>
+                  <p className="mt-1 text-gray-900">
+                    {studentDetailsModalData.name}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Idade
+                  </h4>
+                  <p className="mt-1 text-gray-900">
+                    {typeof studentDetailsModalData.age === 'number' && studentDetailsModalData.age > 0 ? `${studentDetailsModalData.age} anos` : "Não informada"}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Série
+                  </h4>
+                  <p className="mt-1 text-gray-900">
+                    {studentDetailsModalData.grade ? studentDetailsModalData.grade : "Não informada"}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Tipo de Aula
+                  </h4>
+                  <p className="mt-1 text-gray-900">
+                    {studentDetailsModalData.classType === "ONLINE"
+                      ? "Online"
+                      : "Presencial"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-500">
+                  Dificuldades de Aprendizagem
+                </h4>
+                <p className="mt-1 text-gray-900">
+                  {studentDetailsModalData.learningDifficulties ||
+                    "Nenhuma informada"}
+                </p>
+              </div>
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-500">
+                  Condição Pessoal
+                </h4>
+                <p className="mt-1 text-gray-900">
+                  {studentDetailsModalData.personalCondition ||
+                    "Nenhuma informada"}
+                </p>
+              </div>
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-500">
+                  Informações dos Responsáveis
+                </h4>
+                <p className="mt-1 text-gray-900">
+                  {studentDetailsModalData.parentName || "Não informado"}
+                </p>
+                <div className="mt-2 flex space-x-4">
+                  <a
+                    href={`tel:${studentDetailsModalData.parentContact}`}
+                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    <Phone className="h-4 w-4 mr-1" />
+                    Ligar
+                  </a>
+                  <a
+                    href="#"
+                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                    onClick={() =>
+                      alert(
+                        "Mensagem do WhatsApp será enviada aqui"
+                      )
+                    }
+                  >
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    WhatsApp
+                  </a>
+                  <a
+                    href={`mailto:${studentDetailsModalData.parentContact}`}
+                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    <Mail className="h-4 w-4 mr-1" />
+                    E-mail
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setStudentDetailsModalData(null)}
+              >
+                Fechar
+              </Button>
             </div>
           </div>
         </div>
       )}
-      {showHistoryModal && historyStudentId && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">
-              Adicionar histórico do aluno
-            </h2>
-            <Textarea
-              label="Comentário sobre a aula"
-              id="history-text"
-              name="history-text"
-              value={historyText}
-              onChange={(e) => setHistoryText(e.target.value)}
-              placeholder="Descreva como foi a aula, observações, evolução, etc..."
-              rows={5}
-            />
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={handleCloseHistory}>
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Adicionar histórico do aluno</h2>
+            <div className="mb-4">
+              <Textarea
+                label="Comentário sobre a aula"
+                id="history-text"
+                name="history-text"
+                value={historyText}
+                onChange={(e) => setHistoryText(e.target.value)}
+                placeholder="Digite suas observações sobre a aula..."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleCloseHistory}
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleSaveHistory}>Salvar</Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveHistory}
+                disabled={!historyText.trim()}
+              >
+                Enviar
+              </Button>
             </div>
           </div>
         </div>

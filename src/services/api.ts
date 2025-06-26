@@ -1,5 +1,63 @@
 import axios from 'axios';
 
+export interface ScheduleDTO {
+  id: number;
+  studentId: number;
+  teacherId: number | null;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  description: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  meetingLink: string | null;
+  modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  studentName?: string;
+  difficulties: string;
+  condition: string;
+}
+
+export interface TeacherStudent {
+  id: number;
+  name: string;
+  age: number;
+  grade: string;
+  guardian: { name: string };
+  parentName: string;
+  parentContact: string;
+  learningDifficulties: string;
+  personalCondition: string;
+  classType: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+}
+
+export interface TeacherDetails {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  cnpj: string;
+}
+
+export interface BookClassPayload {
+  studentIds: number[];
+  date: string;
+  time: string;
+  modality: string;
+  guardianId: string;
+  teacherId: number;
+  difficulties?: string;
+  condition?: string;
+}
+
+export interface ClassHistoryDTO {
+  id?: number;
+  studentId: number;
+  teacherId: number;
+  classId?: number | null;
+  comment: string;
+  createdAt?: string;
+  guardianId?: number | null;
+}
+
 const api = axios.create({
   baseURL: '/api',
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 30000,
@@ -22,30 +80,57 @@ api.interceptors.request.use(
   }
 );
 
-
+// Response interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // IGNORA COMPLETAMENTE qualquer erro do endpoint de verificação
+    if (originalRequest.url === '/auth/verify') {
+      return Promise.reject(error);
+    }
+
+    // Se for erro 401 e for uma tentativa de refresh token
+    if (error.response?.status === 401 && originalRequest.url === '/auth/refresh') {
+      console.error('[API Interceptor] Erro ao renovar token:', error);
+      await handleLogout();
+      return Promise.reject(error);
+    }
+
+    // Se for erro 401 em outra requisição, tenta renovar o token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-          const response = await apiService.refreshToken(refreshToken);
-          if (response.data?.accessToken) {
-            // Atualiza os tokens no localStorage
+        if (!refreshToken) {
+          throw new Error('Refresh token não encontrado');
+        }
+
+        console.log('[API Interceptor] Tentando renovar token');
+        const response = await api.post('/auth/refresh', { refreshToken });
+        
+        if (!response.data?.accessToken) {
+          throw new Error('Novo token não recebido');
+        }
+
+        console.log('[API Interceptor] Token renovado com sucesso');
             localStorage.setItem('token', response.data.accessToken);
             localStorage.setItem('refreshToken', response.data.refreshToken);
-            // Atualiza o header da requisição original
             originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
-            // Tenta a requisição original novamente
             return api(originalRequest);
+      } catch (refreshError) {
+        console.error('[API Interceptor] Erro ao renovar token:', refreshError);
+        await handleLogout();
+        return Promise.reject(error);
           }
         }
-      } catch {
+    return Promise.reject(error);
+  }
+);
 
+// Função auxiliar para fazer logout
+const handleLogout = async () => {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
@@ -53,11 +138,7 @@ api.interceptors.response.use(
         localStorage.removeItem('responsavelId');
         localStorage.removeItem('professorId');
         window.location.href = '/';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+};
 
 export const apiService = {
 
@@ -162,69 +243,15 @@ export const apiService = {
     return api.put(`/schedules/${scheduleId}/status?status=CANCELLED`);
   },
 
-  getAllSchedules: () => api.get<ScheduleDTO[]>(`/schedules`),
+  getAllSchedules: () => api.get<ScheduleDTO[]>('/schedules'),
 
-  // Novo endpoint para refresh token
-  refreshToken: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
+  // Método para buscar histórico do aluno
+  getStudentHistory: (studentId: string | number) => 
+    api.get(`/students/${studentId}/history`),
 
-  // Histórico de Aula
-  addStudentHistory: (data: {
-    studentId: string;
-    classId: string | null;
-    teacherId: string;
-    comment: string;
-  }) => api.post('/history', data),
-
-  getStudentHistory: (studentId: string) =>
-    api.get(`/history?studentId=${studentId}`),
+  // Método para salvar histórico do aluno
+  saveStudentHistory: (data: ClassHistoryDTO) => 
+    api.post<ClassHistoryDTO>('/history', data),
 };
 
 export default api;
-
-export interface ScheduleDTO {
-  id: number;
-  studentId: number;
-  teacherId: number | null;
-  startTime: string;
-  endTime: string;
-  subject: string;
-  description: string;
-  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  meetingLink: string | null;
-  modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
-  studentName?: string;
-  difficulties: string;
-  condition: string;
-}
-
-export interface TeacherStudent {
-  id: number;
-  name: string;
-  age: number;
-  grade: string;
-  guardian: { name: string };
-  parentName: string;
-  parentContact: string;
-  learningDifficulties: string;
-  personalCondition: string;
-  classType: 'IN_PERSON' | 'ONLINE' | 'HYBRID'; 
-}
-
-export interface TeacherDetails {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  cnpj: string;
-}
-
-export interface BookClassPayload {
-  studentIds: number[];
-  date: string;
-  time: string;
-  modality: string;
-  guardianId: string;
-  teacherId: number;
-  difficulties?: string;
-  condition?: string;
-} 

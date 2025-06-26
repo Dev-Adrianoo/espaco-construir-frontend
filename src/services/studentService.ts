@@ -1,4 +1,7 @@
-import api from './api';
+import { apiService } from './api';
+import { AxiosError } from 'axios';
+import { ScheduleDTO } from './api';
+import scheduleService from './scheduleService';
 
 export interface Student {
   id: string;
@@ -29,69 +32,107 @@ export interface UpdateStudentData {
   guardianId?: number | null;
 }
 
+const handleError = (error: any) => {
+  // Erros de permissão
+  if (error.response?.status === 403) {
+    throw new Error('Você não tem permissão para realizar esta operação.');
+  }
+  // Erros de validação
+  if (error.response?.status === 400) {
+    throw new Error(error.response.data?.message || 'Dados inválidos. Por favor, verifique as informações.');
+  }
+  // Erros de autenticação - não propaga o erro original
+  if (error.response?.status === 401) {
+    throw new Error('Sua sessão expirou. Por favor, faça login novamente.');
+  }
+  // Outros erros
+  throw new Error(error.response?.data?.message || 'Ocorreu um erro. Por favor, tente novamente.');
+};
+
 const studentService = {
   async getStudents(): Promise<Student[]> {
-    const response = await api.get<Student[]>('/students');
+    try {
+      const response = await apiService.getStudents();
     return response.data;
+    } catch (error) {
+      handleError(error);
+      throw new Error('Erro ao buscar alunos.');
+    }
   },
 
   async getStudentsByResponsible(responsibleId: string): Promise<Student[]> {
-    const response = await api.get<Student[]>(`/guardians/children?responsavelId=${responsibleId}`);
+    try {
+      const response = await apiService.getChildrenByResponsible(Number(responsibleId));
     return response.data;
+    } catch (error) {
+      handleError(error);
+      throw new Error('Erro ao buscar alunos do responsável.');
+    }
   },
 
   async getStudent(id: string): Promise<Student> {
-    const response = await api.get<Student>(`/students/${id}`);
+    try {
+      const response = await apiService.getStudent(Number(id));
     return response.data;
+    } catch (error) {
+      handleError(error);
+      throw new Error('Erro ao buscar dados do aluno.');
+    }
   },
 
   async createStudent(data: CreateStudentData): Promise<Student> {
     try {
-      // Obtém o tipo de usuário do localStorage
-      const userType = localStorage.getItem('userType');
-      console.log('[createStudent] Tipo de usuário:', userType);
-      console.log('[createStudent] Dados recebidos:', data);
-      
-      // Define o endpoint baseado no tipo de usuário
-      const endpoint = userType === 'PROFESSORA' 
-        ? '/students/register/teacher'
-        : '/students/register';
-      console.log('[createStudent] Endpoint selecionado:', endpoint);
-      
-      // Remove guardianId se for professora
-      const payload = userType === 'PROFESSORA' 
-        ? {
-            name: data.name,
-            birthDate: data.birthDate,
-            grade: data.grade,
-            difficulties: data.difficulties,
-            condition: data.condition
-          }
-        : data;
-      
-      console.log('[createStudent] Payload a ser enviado:', payload);
-      
-      const response = await api.post<Student>(endpoint, payload);
-      console.log('[createStudent] Resposta do servidor:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('[createStudent] Erro ao criar estudante:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
+      const response = await apiService.registerStudent({
+          name: data.name,
+        email: "",
+        password: "",
+        phone: "",
+        guardianId: data.guardianId || 0,
+        age: 0, // Será calculado no backend
+          grade: data.grade,
+        condition: data.condition || "",
+        difficulties: data.difficulties || "",
       });
-      throw error;
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw new Error('Erro ao cadastrar aluno.');
     }
   },
 
-  async updateStudent(id: string, data: UpdateStudentData): Promise<Student> {
-    const response = await api.put<Student>(`/students/${id}`, data);
+  async updateStudent(id: string, data: CreateStudentData): Promise<Student> {
+    try {
+      const response = await apiService.updateStudent(Number(id), {
+        name: data.name,
+        email: "",
+        phone: "",
+        age: 0, // Será calculado no backend
+        grade: data.grade,
+        condition: data.condition ?? "", // Usa o operador de coalescência nula
+        difficulties: data.difficulties ?? "", // Usa o operador de coalescência nula
+      });
     return response.data;
+    } catch (error) {
+      handleError(error);
+      throw new Error('Erro ao atualizar dados do aluno.');
+    }
   },
 
   async deleteStudent(id: string): Promise<void> {
-    await api.delete(`/students/${id}`);
+    try {
+      await apiService.deleteStudent(Number(id));
+    } catch (error: any) {
+      // Se for erro de permissão
+      if (error.response?.status === 403) {
+        throw new Error('Você não tem permissão para excluir este aluno.');
+      }
+      // Se o aluno tiver aulas agendadas
+      if (error.response?.status === 400) {
+        throw new Error('Não é possível excluir o aluno pois ele possui aulas agendadas. Por favor, cancele todas as aulas antes de excluir.');
+      }
+      // Outros erros
+      throw new Error('Erro ao excluir aluno. Por favor, tente novamente.');
+    }
   }
 };
 

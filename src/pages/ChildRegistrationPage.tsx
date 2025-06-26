@@ -122,16 +122,26 @@ const ChildRegistrationPage: React.FC = () => {
         } 
         // Se for responsável, carrega seus próprios dados
         else if (user?.role === "RESPONSAVEL") {
+          try {
           const response = await apiService.getCurrentGuardian();
-          setLoggedGuardianId(response.data.id);
+            if (!response.data?.id) {
+              throw new Error("ID do responsável não encontrado");
+            }
+            
+            const guardianId = response.data.id;
+            setLoggedGuardianId(guardianId);
           setLoggedGuardianName(response.data.name);
-          setFormData(prev => ({ ...prev, guardianId: response.data.id }));
+            
+            // Atualiza o guardianId no formData apenas se não estiver definido
+            setFormData(prev => ({
+              ...prev,
+              guardianId: prev.guardianId || guardianId
+            }));
 
           // Busca os filhos após carregar os dados do responsável
-          if (response.data.id) {
             try {
               setLoadingChildren(true);
-              const childrenResponse = await studentService.getStudentsByResponsible(String(response.data.id));
+              const childrenResponse = await studentService.getStudentsByResponsible(String(guardianId));
               setChildren(childrenResponse);
             } catch (err) {
               const error = err as AxiosError<{ message: string }>;
@@ -140,6 +150,10 @@ const ChildRegistrationPage: React.FC = () => {
             } finally {
               setLoadingChildren(false);
             }
+          } catch (err) {
+            const error = err as AxiosError<{ message: string }>;
+            setLoggedGuardianError("Erro ao carregar dados do responsável. Por favor, faça login novamente.");
+            console.error("Erro ao carregar dados do responsável:", err);
           }
         }
       } catch (err) {
@@ -153,6 +167,17 @@ const ChildRegistrationPage: React.FC = () => {
     fetchInitialData();
   }, [user?.role]);
 
+  // Efeito adicional para garantir que o guardianId seja mantido
+  useEffect(() => {
+    if (user?.role === "RESPONSAVEL" && loggedGuardianId && !formData.guardianId) {
+      console.log('[useEffect] Restaurando guardianId:', loggedGuardianId);
+      setFormData(prev => ({
+        ...prev,
+        guardianId: loggedGuardianId
+      }));
+    }
+  }, [user?.role, loggedGuardianId, formData.guardianId]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -164,13 +189,17 @@ const ChildRegistrationPage: React.FC = () => {
   };
 
   const resetForm = () => {
+    // Preserva o guardianId atual
+    const currentGuardianId = formData.guardianId;
+    
     setFormData({
       name: "",
       birthDate: "",
       grade: "",
       difficulties: "",
       condition: "",
-      guardianId: user?.role === "PROFESSORA" ? null : 0
+      // Mantém o guardianId atual ao invés de resetar
+      guardianId: currentGuardianId
     });
     setEditingChild(null);
   };
@@ -183,11 +212,26 @@ const ChildRegistrationPage: React.FC = () => {
     console.log('[handleSubmit] Dados do formulário:', formData);
     
     // Se for responsável, precisa ter guardianId
-    if (user?.role === "RESPONSAVEL" && !formData.guardianId) {
-      console.error('[handleSubmit] Erro: ID do responsável não encontrado');
+    if (user?.role === "RESPONSAVEL") {
+      if (!formData.guardianId) {
+        // Tenta buscar o ID do responsável novamente
+        try {
+          const response = await apiService.getCurrentGuardian();
+          if (!response.data?.id) {
+            console.error('[handleSubmit] Erro: ID do responsável não encontrado');
+            setSubmissionStatus("error");
+            setSubmissionMessage("ID do responsável não encontrado. Por favor, faça login novamente.");
+            return;
+          }
+          // Atualiza o guardianId no formData
+          setFormData(prev => ({ ...prev, guardianId: response.data.id }));
+        } catch (err) {
+          console.error('[handleSubmit] Erro ao buscar ID do responsável:', err);
       setSubmissionStatus("error");
-      setSubmissionMessage("ID do responsável não encontrado.");
+          setSubmissionMessage("Erro ao buscar dados do responsável. Por favor, faça login novamente.");
       return;
+        }
+      }
     }
 
     // Validação da data de nascimento
@@ -208,7 +252,7 @@ const ChildRegistrationPage: React.FC = () => {
       };
 
       console.log('[handleSubmit] Dados do estudante a serem enviados:', studentData);
-      
+
       if (editingChild) {
         console.log('[handleSubmit] Modo de edição - Atualizando estudante:', editingChild.id);
         await studentService.updateStudent(editingChild.id, studentData);
@@ -225,13 +269,19 @@ const ChildRegistrationPage: React.FC = () => {
       // Atualiza a lista de filhos se for responsável
       if (user?.role === "RESPONSAVEL" && loggedGuardianId) {
         console.log('[handleSubmit] Atualizando lista de filhos para o responsável:', loggedGuardianId);
+        try {
         const updatedChildren = await studentService.getStudentsByResponsible(String(loggedGuardianId));
         setChildren(updatedChildren);
+        } catch (err) {
+          console.error('[handleSubmit] Erro ao atualizar lista de filhos:', err);
+          // Não interrompe o fluxo se falhar ao atualizar a lista
+        }
       }
 
+      // Reseta o formulário mantendo o guardianId
       resetForm();
       
-      // Redireciona após o sucesso
+      // Redireciona após o sucesso apenas se for professora
       if (user?.role === "PROFESSORA") {
         console.log('[handleSubmit] Redirecionando para dashboard da professora');
         navigate("/teacher-dashboard");
@@ -274,20 +324,26 @@ const ChildRegistrationPage: React.FC = () => {
     try {
       await studentService.deleteStudent(childToDelete.id);
       
-      // Atualiza a lista de alunos
+      // Só atualiza a lista se a exclusão foi bem sucedida
+      try {
       if (loggedGuardianId) {
         const updatedChildren = await studentService.getStudentsByResponsible(String(loggedGuardianId));
         setChildren(updatedChildren);
+        }
+      } catch (refreshError) {
+        console.error('Erro ao atualizar lista após exclusão:', refreshError);
+        // Não mostra erro para o usuário pois a exclusão foi bem sucedida
       }
       
       setIsDeleteModalOpen(false);
       setChildToDelete(null);
       setSubmissionStatus("success");
       setSubmissionMessage("Aluno removido com sucesso!");
-    } catch (err) {
-      const error = err as AxiosError<{ message: string }>;
+    } catch (err: any) {
+      console.error('Erro ao excluir aluno:', err);
       setSubmissionStatus("error");
-      setSubmissionMessage(error.response?.data?.message || "Erro ao remover aluno.");
+      // Usa a mensagem de erro personalizada do serviço
+      setSubmissionMessage(err.message || "Erro ao remover aluno.");
     }
   };
 
