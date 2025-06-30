@@ -155,7 +155,7 @@ export default function AuthFlow() {
 
       if (error.code === "ERR_NETWORK") {
         setRegistrationError(
-          "Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:8080"
+          "Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:8081"
         );
       } else if (
         error.response?.status === 400 &&

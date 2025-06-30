@@ -130,7 +130,7 @@ const ChildRegistrationPage: React.FC = () => {
             
             const guardianId = response.data.id;
             setLoggedGuardianId(guardianId);
-          setLoggedGuardianName(response.data.name);
+            setLoggedGuardianName(response.data.name);
             
             // Atualiza o guardianId no formData apenas se não estiver definido
             setFormData(prev => ({
@@ -214,7 +214,7 @@ const ChildRegistrationPage: React.FC = () => {
     // Se for responsável, precisa ter guardianId
     if (user?.role === "RESPONSAVEL") {
       if (!formData.guardianId) {
-        // Tenta buscar o ID do responsável novamente
+
         try {
           const response = await apiService.getCurrentGuardian();
           if (!response.data?.id) {
