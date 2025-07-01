@@ -329,7 +329,11 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
       <div className="text-center mb-8">
         <div className="flex justify-center mb-6">
           <div className="bg-blue-100 p-4 rounded-full">
-            <GraduationCap className="h-12 w-12 text-blue-500" />
+            <img
+              src="/src/images/espaco-construir-logo.jpeg"
+              alt="logo"
+              className="absolute top-13 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-[96px] h-auto object-contain z-20"
+            ></img>
           </div>
         </div>
         <h2 className="text-3xl font-bold text-blue-700">Espaço Construir</h2>
