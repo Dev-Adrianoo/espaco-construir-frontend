@@ -336,8 +336,8 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
             ></img>
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-blue-700">Espaço Construir</h2>
-        <p className="mt-3 text-lg text-blue-500">Bem-vindo(a) de volta!</p>
+        <h2 className="text-3xl font-bold text-blue-700">Instituto Construir</h2>
+        <p className="mt-3 text-lg text-black">Bem-vindo(a) de volta!</p>
       </div>
 
       <p className="text-sm font-medium text-gray-700 mb-4 text-center">
