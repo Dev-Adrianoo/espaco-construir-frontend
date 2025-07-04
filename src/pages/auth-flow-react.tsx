@@ -330,7 +330,7 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
         <div className="flex justify-center mb-6">
           <div className="bg-blue-100 p-4 rounded-full">
             <img
-              src="/src/images/espaco-construir-logo.jpeg"
+              src="src/images/espaco-construir-logo-Photoroom.png"
               alt="logo"
               className="absolute top-13 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-[96px] h-auto object-contain z-20"
             ></img>
