@@ -9,6 +9,7 @@ import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
+import { ArrowLeft } from "lucide-react";
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -439,18 +440,7 @@ function LoginForm({
           onClick={onBack}
           className="p-2 -ml-2 mr-3 rounded-full hover:bg-blue-100 transition-colors"
         >
-          <svg
-            className="h-5 w-5 text-blue-500"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M15 18l-6-6-6-6" />
-          </svg>
+          <ArrowLeft className="h-5 w-5 text-blue-500" />
         </button>
         <div>
           <h2 className="text-xl font-bold text-gray-800">
@@ -479,6 +469,7 @@ function LoginForm({
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                     clipRule="evenodd"
                   />
+                  
                 </svg>
               </div>
               <div className="ml-3">
