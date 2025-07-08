@@ -13,7 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 import scheduleService from "../services/scheduleService";
 
-// Time slots available for booking
+// Tempos disponíveis para agendamento
 const TIME_SLOTS = [
   "08:00",
   "09:00",
@@ -82,16 +82,16 @@ const SchedulePage: React.FC = (): JSX.Element => {
   const today = new Date();
   const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
-  // Initialize schedule with empty slots
+  // Inicializa o agendamento com slots vazios
   const initialSchedule: ScheduleType = {};
 
-  // Create 7 days starting from Monday
+  // Cria 7 dias começando de segunda-feira
   for (let i = 0; i < 7; i++) {
     const date = addDays(startDate, i);
     const dateStr = format(date, "yyyy-MM-dd");
     initialSchedule[dateStr] = {};
 
-    // Add time slots for each day
+    // Adiciona slots de tempo para cada dia
     TIME_SLOTS.forEach((time) => {
       initialSchedule[dateStr][time] = {
         childId: "",

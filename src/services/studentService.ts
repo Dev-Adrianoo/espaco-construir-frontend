@@ -12,11 +12,12 @@ export interface Student {
   condition?: string;
   guardianId: number;
   age: number;
+
 }
 
 export interface CreateStudentData {
   name: string;
-  birthDate: string;  // formato "dd/MM/yyyy"
+  birthDate: string;  
   grade: string;
   difficulties?: string;
   condition?: string;
@@ -53,7 +54,7 @@ const studentService = {
   async getStudents(): Promise<Student[]> {
     try {
       const response = await apiService.getStudents();
-    return response.data;
+      return response.data;
     } catch (error) {
       handleError(error);
       throw new Error('Erro ao buscar alunos.');
@@ -63,7 +64,7 @@ const studentService = {
   async getStudentsByResponsible(responsibleId: string): Promise<Student[]> {
     try {
       const response = await apiService.getChildrenByResponsible(Number(responsibleId));
-    return response.data;
+      return response.data;
     } catch (error) {
       handleError(error);
       throw new Error('Erro ao buscar alunos do responsável.');
@@ -73,7 +74,7 @@ const studentService = {
   async getStudent(id: string): Promise<Student> {
     try {
       const response = await apiService.getStudent(Number(id));
-    return response.data;
+      return response.data;
     } catch (error) {
       handleError(error);
       throw new Error('Erro ao buscar dados do aluno.');
@@ -83,13 +84,13 @@ const studentService = {
   async createStudent(data: CreateStudentData): Promise<Student> {
     try {
       const response = await apiService.registerStudent({
-          name: data.name,
+        name: data.name,
         email: "",
         password: "",
         phone: "",
-        guardianId: data.guardianId || 0,
-        age: 0, // Será calculado no backend
-          grade: data.grade,
+        guardianId: data.guardianId || 0, 
+        grade: data.grade,
+        birthDate: data.birthDate,
         condition: data.condition || "",
         difficulties: data.difficulties || "",
       });
@@ -104,14 +105,13 @@ const studentService = {
     try {
       const response = await apiService.updateStudent(Number(id), {
         name: data.name,
-        email: "",
-        phone: "",
-        age: 0, // Será calculado no backend
+        birthDate: data.birthDate,
         grade: data.grade,
-        condition: data.condition ?? "", // Usa o operador de coalescência nula
-        difficulties: data.difficulties ?? "", // Usa o operador de coalescência nula
+        condition: data.condition ?? "",
+        difficulties: data.difficulties ?? "",
+        guardianId: data.guardianId ?? 0
       });
-    return response.data;
+      return response.data;
     } catch (error) {
       handleError(error);
       throw new Error('Erro ao atualizar dados do aluno.');

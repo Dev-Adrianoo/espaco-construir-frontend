@@ -13,6 +13,8 @@ import {
   MessageSquare,
   Book,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { apiService } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -59,6 +61,8 @@ const TeacherDashboardPage: React.FC = () => {
   const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startDate);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Novos estados para dados reais e carregamento
   const [teacherSchedules, setTeacherSchedules] = useState<ScheduledClass[]>(
@@ -194,6 +198,15 @@ const TeacherDashboardPage: React.FC = () => {
     fetchTeacherData();
   }, [user, authLoading]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const classesForSelectedDate = teacherSchedules.filter(
     (cls) => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
@@ -264,6 +277,14 @@ const TeacherDashboardPage: React.FC = () => {
     }
   };
 
+  const handlePreviousWeek = () => {
+    setCurrentWeekStart(prev => addDays(prev, -7));
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart(prev => addDays(prev, 7));
+  };
+
   // Agrupar agendamentos por horário
   const groupedSchedules = classesForSelectedDate.reduce((acc, current) => {
     const time = current.time;
@@ -297,38 +318,62 @@ const TeacherDashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full min-h-screen flex flex-col px-4 md:px-8 py-8 bg-gray-50">
+    <div className="w-full min-h-screen flex flex-col px-2 sm:px-4 md:px-8 py-4 sm:py-8 bg-gray-50">
       <div className="w-full max-w-[1600px] mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-1 text-left">Painel do Professor</h1>
-        <p className="mt-1 text-gray-600 mb-8 text-left">Gerencie seus alunos e aulas</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 text-left">Painel do Professor</h1>
+        <p className="mt-1 text-gray-600 mb-4 sm:mb-8 text-left text-sm sm:text-base">Gerencie seus alunos e aulas</p>
+        
         {/* Visão Geral da Agenda - Grid igual Agenda */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 text-left">
-            <Calendar className="h-6 w-6 text-blue-500" /> Visão Geral da Agenda
-          </h2>
-          <div className="grid grid-cols-7 gap-4">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6 mb-4 sm:mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 flex items-center gap-2 text-left">
+              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" /> Visão Geral da Agenda
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePreviousWeek}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <button
+                onClick={handleNextWeek}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronRight className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-4">
             {Array.from({ length: 7 }).map((_, i) => {
-              const date = addDays(startDate, i);
+              const date = addDays(currentWeekStart, i);
               const dateStr = format(date, "yyyy-MM-dd");
               const dayClasses = teacherSchedules.filter((cls) => cls.date === dateStr);
               const isSelected = isSameDay(date, selectedDate);
+              
+              // On mobile, only show current day and next 2 days
+              if (isMobile && i > 2) return null;
+
               return (
                 <div
                   key={i}
-                  className={`flex flex-col items-center justify-center h-40 rounded-lg border transition-colors cursor-pointer ${
+                  className={`flex flex-col items-center justify-center h-24 sm:h-32 md:h-40 rounded-lg border transition-colors cursor-pointer ${
                     isSelected ? "bg-blue-50 border-blue-400" : "bg-gray-50 border-gray-200 hover:bg-gray-100"
                   }`}
                   onClick={() => setSelectedDate(date)}
                 >
-                  <div className="text-sm text-gray-500 mb-1">
-                    {format(date, "EEEE", { locale: ptBR })}
+                  <div className="text-xs sm:text-sm text-gray-500 mb-1">
+                    {format(date, "EEE", { locale: ptBR })}
                   </div>
-                  <div className={`text-2xl font-bold mb-1 ${isSelected ? "text-blue-600" : "text-gray-800"}`}>{format(date, "d")}</div>
-                  <div className="text-xs text-center font-medium text-gray-600">
+                  <div className={`text-xl sm:text-2xl font-bold mb-1 ${isSelected ? "text-blue-600" : "text-gray-800"}`}>
+                    {format(date, "d")}
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-center font-medium text-gray-600 px-1">
                     {dayClasses.length > 0 ? (
                       <span className="text-blue-600">{dayClasses.length} aula{dayClasses.length !== 1 ? "s" : ""}</span>
                     ) : (
-                      "Nenhuma aula agendada para este dia."
+                      <span className="text-xs">Sem aulas</span>
                     )}
                   </div>
                 </div>
@@ -336,46 +381,58 @@ const TeacherDashboardPage: React.FC = () => {
             })}
           </div>
         </div>
+
         {/* Aulas do dia */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 text-left">
-            <Book className="h-6 w-6 text-blue-500" /> Aulas para {format(selectedDate, "dd/MM/yyyy")}
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 text-left">
+            <Book className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" /> Aulas para {format(selectedDate, "dd/MM/yyyy")}
           </h2>
           {classesForSelectedDate.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 flex flex-col items-center">
-              <Calendar className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 mb-4">Nenhuma aula agendada para este dia.</p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-8 flex flex-col items-center">
+              <Calendar className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mb-3" />
+              <p className="text-gray-500 mb-4 text-sm sm:text-base text-center">Nenhuma aula agendada para este dia.</p>
               <Button 
                 variant="secondary" 
-                className="flex items-center gap-2 text-blue-600 border-blue-400 font-semibold"
+                className="flex items-center gap-2 text-blue-600 border-blue-400 font-semibold text-sm sm:text-base"
               >
-                <Plus size={20} />
+                <Plus size={18} />
                 Adicionar Novo Aluno
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
               {Object.entries(groupedSchedules).map(([time, schedules]) => {
                 const firstSchedule = schedules[0];
                 const canAddHistory = new Date(`${firstSchedule.date}T${firstSchedule.time}`) < new Date();
                 return (
-                  <div key={time} className="bg-gray-50 border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-3">
+                  <div key={time} className="bg-gray-50 border border-gray-200 rounded-lg shadow-sm p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-blue-500" />
-                      <span className="font-medium text-gray-800 text-lg">{time} <span className="text-xs text-gray-500">({firstSchedule.duration} min)</span></span>
-                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${firstSchedule.type === "online" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                      <span className="font-medium text-gray-800 text-base sm:text-lg">
+                        {time} 
+                        <span className="text-[10px] sm:text-xs text-gray-500 ml-1">
+                          ({firstSchedule.duration} min)
+                        </span>
+                      </span>
+                      <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${
+                        firstSchedule.type === "online" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                      }`}>
                         {firstSchedule.type === "online" ? "Online" : "Presencial"}
                       </span>
                     </div>
                     {schedules.map((scheduleItem) => (
                       <div key={scheduleItem.id} className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <User className="h-5 w-5 text-gray-500" />
-                          <span className="text-gray-800 font-medium">{scheduleItem.studentName}</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <User className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                          <span className="text-gray-800 font-medium text-sm sm:text-base">{scheduleItem.studentName}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 rounded-full hover:bg-gray-200 transition-colors" title="Ver detalhes do aluno" onClick={() => handleViewStudent(scheduleItem)}>
-                            <FileText className="h-5 w-5 text-gray-500" />
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <button 
+                            className="p-1 rounded-full hover:bg-gray-200 transition-colors" 
+                            title="Ver detalhes do aluno" 
+                            onClick={() => handleViewStudent(scheduleItem)}
+                          >
+                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                           </button>
                           <Button 
                             variant="secondary"
@@ -384,7 +441,7 @@ const TeacherDashboardPage: React.FC = () => {
                             disabled={!canAddHistory} 
                             data-title={canAddHistory ? "Adicionar histórico" : "Só é possível adicionar histórico após a aula"}
                           >
-                            <MessageSquare size={16} />
+                            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
                           </Button>
                         </div>
                       </div>
@@ -396,98 +453,77 @@ const TeacherDashboardPage: React.FC = () => {
           )}
         </div>
       </div>
+
       {/* Student Details Modal */}
       {studentDetailsModalData && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">Detalhes do Aluno</h2>
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black bg-opacity-40 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-bold mb-4">Detalhes do Aluno</h2>
             <div className="mt-4 border-t border-gray-200 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">
-                    Nome
-                  </h4>
-                  <p className="mt-1 text-gray-900">
-                    {studentDetailsModalData.name}
+                  <h4 className="text-xs sm:text-sm font-medium text-gray-500">Nome</h4>
+                  <p className="mt-1 text-sm sm:text-base text-gray-900">{studentDetailsModalData.name}</p>
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-medium text-gray-500">Idade</h4>
+                  <p className="mt-1 text-sm sm:text-base text-gray-900">
+                    {typeof studentDetailsModalData.age === 'number' && studentDetailsModalData.age > 0 
+                      ? `${studentDetailsModalData.age} anos` 
+                      : "Não informada"}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">
-                    Idade
-                  </h4>
-                  <p className="mt-1 text-gray-900">
-                    {typeof studentDetailsModalData.age === 'number' && studentDetailsModalData.age > 0 ? `${studentDetailsModalData.age} anos` : "Não informada"}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">
-                    Série
-                  </h4>
-                  <p className="mt-1 text-gray-900">
+                  <h4 className="text-xs sm:text-sm font-medium text-gray-500">Série</h4>
+                  <p className="mt-1 text-sm sm:text-base text-gray-900">
                     {studentDetailsModalData.grade ? studentDetailsModalData.grade : "Não informada"}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">
-                    Tipo de Aula
-                  </h4>
-                  <p className="mt-1 text-gray-900">
-                    {studentDetailsModalData.classType === "ONLINE"
-                      ? "Online"
-                      : "Presencial"}
+                  <h4 className="text-xs sm:text-sm font-medium text-gray-500">Tipo de Aula</h4>
+                  <p className="mt-1 text-sm sm:text-base text-gray-900">
+                    {studentDetailsModalData.classType === "ONLINE" ? "Online" : "Presencial"}
                   </p>
                 </div>
               </div>
               <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500">
-                  Dificuldades de Aprendizagem
-                </h4>
-                <p className="mt-1 text-gray-900">
-                  {studentDetailsModalData.learningDifficulties ||
-                    "Nenhuma informada"}
+                <h4 className="text-xs sm:text-sm font-medium text-gray-500">Dificuldades de Aprendizagem</h4>
+                <p className="mt-1 text-sm sm:text-base text-gray-900">
+                  {studentDetailsModalData.learningDifficulties || "Nenhuma informada"}
                 </p>
               </div>
               <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500">
-                  Condição Pessoal
-                </h4>
-                <p className="mt-1 text-gray-900">
-                  {studentDetailsModalData.personalCondition ||
-                    "Nenhuma informada"}
+                <h4 className="text-xs sm:text-sm font-medium text-gray-500">Condição Pessoal</h4>
+                <p className="mt-1 text-sm sm:text-base text-gray-900">
+                  {studentDetailsModalData.personalCondition || "Nenhuma informada"}
                 </p>
               </div>
               <div className="mt-4 border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-500">
-                  Informações dos Responsáveis
-                </h4>
-                <p className="mt-1 text-gray-900">
+                <h4 className="text-xs sm:text-sm font-medium text-gray-500">Informações dos Responsáveis</h4>
+                <p className="mt-1 text-sm sm:text-base text-gray-900">
                   {studentDetailsModalData.parentName || "Não informado"}
                 </p>
-                <div className="mt-2 flex space-x-4">
+                <div className="mt-2 flex flex-wrap gap-2 sm:gap-4">
                   <a
                     href={`tel:${studentDetailsModalData.parentContact}`}
-                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                    className="inline-flex items-center text-xs sm:text-sm text-indigo-600 hover:text-indigo-800"
                   >
-                    <Phone className="h-4 w-4 mr-1" />
+                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     Ligar
                   </a>
                   <a
                     href="#"
-                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
-                    onClick={() =>
-                      alert(
-                        "Mensagem do WhatsApp será enviada aqui"
-                      )
-                    }
+                    className="inline-flex items-center text-xs sm:text-sm text-indigo-600 hover:text-indigo-800"
+                    onClick={() => alert("Mensagem do WhatsApp será enviada aqui")}
                   >
-                    <MessageSquare className="h-4 w-4 mr-1" />
+                    <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     WhatsApp
                   </a>
                   <a
                     href={`mailto:${studentDetailsModalData.parentContact}`}
-                    className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                    className="inline-flex items-center text-xs sm:text-sm text-indigo-600 hover:text-indigo-800"
                   >
-                    <Mail className="h-4 w-4 mr-1" />
+                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     E-mail
                   </a>
                 </div>
@@ -497,6 +533,7 @@ const TeacherDashboardPage: React.FC = () => {
               <Button
                 variant="secondary"
                 onClick={() => setStudentDetailsModalData(null)}
+                className="text-sm"
               >
                 Fechar
               </Button>
@@ -504,10 +541,12 @@ const TeacherDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* History Modal */}
       {showHistoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Adicionar histórico do aluno</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full">
+            <h2 className="text-lg sm:text-xl font-bold mb-4">Adicionar histórico do aluno</h2>
             <div className="mb-4">
               <Textarea
                 label="Comentário sobre a aula"
@@ -522,6 +561,7 @@ const TeacherDashboardPage: React.FC = () => {
               <Button
                 variant="secondary"
                 onClick={handleCloseHistory}
+                className="text-sm"
               >
                 Cancelar
               </Button>
@@ -529,6 +569,7 @@ const TeacherDashboardPage: React.FC = () => {
                 variant="primary"
                 onClick={handleSaveHistory}
                 disabled={!historyText.trim()}
+                className="text-sm"
               >
                 Enviar
               </Button>
@@ -536,6 +577,8 @@ const TeacherDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Success Modal */}
       {showSuccessModal && (
         <SuccessModal
           isOpen={showSuccessModal}

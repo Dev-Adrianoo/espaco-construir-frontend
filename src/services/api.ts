@@ -86,12 +86,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // IGNORA COMPLETAMENTE qualquer erro do endpoint de verificação
+
     if (originalRequest.url === '/auth/verify') {
       return Promise.reject(error);
     }
 
-    // Se for erro 401 e for uma tentativa de refresh token
+  
     if (error.response?.status === 401 && originalRequest.url === '/auth/refresh') {
       console.error('[API Interceptor] Erro ao renovar token:', error);
       await handleLogout();
@@ -187,28 +187,29 @@ export const apiService = {
   deleteTeacher: (id: number) => api.delete(`/teachers/${id}`),
   getTeachers: () => api.get('/teachers'),
 
-  // Students (Alunos)
+
   registerStudent: (data: {
     name: string;
     email?: string;
     password?: string;
     phone?: string;
-    guardianId: number;
-    age: number;
+    guardianId?: number;
+    birthDate: string;
     grade: string;
-    condition: string;
-    difficulties: string;
+    condition?: string;
+    difficulties?: string;
   }) => api.post('/students/register', data),
 
   getStudent: (id: number) => api.get(`/students/${id}`),
   updateStudent: (id: number, data: {
     name: string;
-    email: string;
-    phone: string;
-    age: number;
+    email?: string;
+    phone?: string;
+    birthDate: string;
     grade: string;
-    condition: string;
-    difficulties: string;
+    condition?: string;
+    difficulties?: string;
+    guardianId?: number;
   }) => api.put(`/students/${id}`, data),
   deleteStudent: (id: number) => api.delete(`/students/${id}`),
   getStudents: () => api.get('/students'),

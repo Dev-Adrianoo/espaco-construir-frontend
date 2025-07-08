@@ -298,7 +298,7 @@ const HistoryPage: React.FC = () => {
 
   if (loadingChildren || loadingHistory) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
           
@@ -375,11 +375,11 @@ const HistoryPage: React.FC = () => {
                             <h3 className="text-lg font-medium text-gray-900">
                               {childName}
                             </h3>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-">
                               Professor(a): {teacherName}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
                             <span>{formatDate(record.createdAt)}</span>
                             <span>•</span>
                             <span>{record.comment}</span>
@@ -405,7 +405,7 @@ const HistoryPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
         
@@ -479,7 +479,7 @@ const HistoryPage: React.FC = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
                         <div className="mb-2 sm:mb-0">
-                          <h3 className="text-lg font-medium text-gray-900">
+                          <h3 className="text-lg font-medium text-gray-900 font-bold">
                             {childName}
                           </h3>
                           <p className="text-sm text-gray-500">
@@ -494,7 +494,7 @@ const HistoryPage: React.FC = () => {
                       </div>
                       
                       <div className="bg-white rounded p-3 border border-gray-100">
-                        <h4 className="font-medium text-gray-700 mb-2">Anotações:</h4>
+                        <h4 className="font-bold text-gray-700 mb-2">Anotações:</h4>
                         <p className="text-gray-600 whitespace-pre-wrap">
                           {record.comment}
                         </p>

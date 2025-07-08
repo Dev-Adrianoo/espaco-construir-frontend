@@ -302,13 +302,16 @@ const ChildRegistrationPage: React.FC = () => {
   };
 
   const handleEdit = (child: Student) => {
+
+    console.log('[handleEdit] - Editando o filho:', child);
+    
     setFormData({
       name: child.name,
-      birthDate: formatDateForInput(child.birthDate),
+      birthDate: child.birthDate,
       grade: child.grade,
       difficulties: child.difficulties || "",
       condition: child.condition || "",
-      guardianId: user?.role === "PROFESSORA" ? null : (child.guardianId || 0)
+      guardianId: child.guardianId
     });
     setEditingChild(child);
   };
@@ -375,11 +378,11 @@ const ChildRegistrationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-[#F3F4F6] p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Formulário de Cadastro */}
-          <div className="flex-1 bg-white rounded-lg shadow p-6">
+          <div className="w-full lg:w-1/2 bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-2">
               <UserPlus className="w-6 h-6 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">
@@ -506,7 +509,7 @@ const ChildRegistrationPage: React.FC = () => {
           </div>
 
           {/* Lista de Alunos */}
-          <div className="w-1/2 bg-white rounded-lg shadow p-6">
+          <div className="w-full lg:w-1/2 bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen className="w-6 h-6 text-blue-600" />
               <h2 className="text-xl font-bold text-gray-900">
@@ -532,7 +535,7 @@ const ChildRegistrationPage: React.FC = () => {
                     key={child.id}
                     className="border border-gray-200 p-4 rounded-lg hover:bg-gray-50"
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div>
                         <h3 className="font-semibold text-gray-900">{child.name}</h3>
                         <p className="text-sm text-gray-600">Série: {child.grade}</p>
@@ -550,16 +553,18 @@ const ChildRegistrationPage: React.FC = () => {
                           </p>
                         )}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="secondary"
                           onClick={() => handleEdit(child)}
+                          className="flex-1 sm:flex-none"
                         >
                           Editar
                         </Button>
                         <Button
                           variant="danger"
                           onClick={() => handleDelete(child)}
+                          className="flex-1 sm:flex-none"
                         >
                           Excluir
                         </Button>
