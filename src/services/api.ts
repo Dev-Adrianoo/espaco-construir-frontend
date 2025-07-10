@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Student } from './studentService';
 
 export interface ScheduleDTO {
   id: number;
@@ -187,6 +188,9 @@ export const apiService = {
   deleteTeacher: (id: number) => api.delete(`/teachers/${id}`),
   getTeachers: () => api.get('/teachers'),
 
+  getStudentsByTeacher: (teacherId: number) =>
+    api.get(`/students/teacher/${teacherId}`),
+  
 
   registerStudent: (data: {
     name: string;
@@ -216,7 +220,7 @@ export const apiService = {
 
   // New: Get Students by Teacher ID
   getStudentsByTeacherId: (teacherId: number) => 
-    api.get<TeacherStudent[]>(`/students/teacher/${teacherId}`),
+    api.get<Student[]>(`/students/teacher/${teacherId}`),
 
   // General endpoints
   getChildren: () => api.get('/children'),

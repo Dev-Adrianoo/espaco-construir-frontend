@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import studentService, { Student, CreateStudentData } from "../services/studentService";
 import MaskedInput from "../components/MaskedInput";
 import { UserPlus, CalendarDays, GraduationCap, BookOpen, AlertCircle, Brain } from 'lucide-react';
+import { number } from "framer-motion";
 
 interface Guardian {
   id: number;
@@ -45,7 +46,7 @@ const ChildRegistrationPage: React.FC = () => {
     grade: "",
     difficulties: "",
     condition: "",
-    guardianId: 0
+    guardianId: null
   });
 
   const [loggedGuardianId, setLoggedGuardianId] = useState<number | null>(null);
@@ -104,23 +105,38 @@ const ChildRegistrationPage: React.FC = () => {
       try {
         setLoadingLoggedGuardian(true);
 
-        // Se for professor, carrega a lista de responsáveis
-        if (user?.role === "PROFESSORA") {
-          setLoadingGuardians(true);
-          try {
-            const guardiansResponse = await apiService.getResponsibles();
-            setGuardians(guardiansResponse.data);
-            // Define guardianId como null para o backend pegar automaticamente
-            setFormData(prev => ({ ...prev, guardianId: null }));
-            setLoggedGuardianId(Number(userId));
-          } catch (err) {
-            const error = err as AxiosError<{ message: string }>;
-            setGuardiansError(error.response?.data?.message || "Erro ao carregar responsáveis.");
-          } finally {
-            setLoadingGuardians(false);
-          }
-        } 
-        // Se for responsável, carrega seus próprios dados
+      
+
+      if (user?.role === "PROFESSORA") {
+       
+        setLoadingGuardians(true);
+        try {
+          const guardiansResponse = await apiService.getResponsibles();
+          setGuardians(guardiansResponse.data);
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setGuardiansError(error.response?.data?.message || "Erro ao carregar responsáveis.");
+        } finally {
+          setLoadingGuardians(false);
+        }
+
+
+        setLoadingChildren(true); 
+        try {
+          console.log("Usuário é PROFESSORA. Buscando seus alunos associados...");
+          // Corrigido: usar Number() ao invés de number()
+          const studentsResponse = await apiService.getStudentsByTeacherId(Number(user.id));
+          setChildren(studentsResponse.data); 
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setChildrenError(error.response?.data?.message || "Erro ao carregar alunos da professora.");
+        } finally {
+          setLoadingChildren(false);
+        }
+
+      } 
+        
+        
         else if (user?.role === "RESPONSAVEL") {
           try {
           const response = await apiService.getCurrentGuardian();
@@ -182,10 +198,24 @@ const ChildRegistrationPage: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+  
+    
+    if (name === 'guardianId') {
+      // Se o valor for uma string vazia (da opção "Selecione..."), guardamos como null.
+      // Senão, convertemos o valor para um número inteiro.
+      const newGuardianId = value === "" ? null : parseInt(value, 10);
+      
+      setFormData(prev => ({
+        ...prev,
+        guardianId: newGuardianId
+      }));
+    } else {
+      // Para todos os outros campos, o comportamento genérico continua.
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const resetForm = () => {
@@ -204,102 +234,68 @@ const ChildRegistrationPage: React.FC = () => {
     setEditingChild(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+// Substitua sua função handleSubmit inteira por esta:
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSubmissionStatus("loading");
+
+  if (!user?.id) {
+    setSubmissionMessage("Sua sessão expirou. Por favor, faça login novamente.");
+    setSubmissionStatus("error");
+    return;
+  }
+
+  // Validação da data de nascimento
+  if (!formData.birthDate) { // Removi a validação de formato regex por enquanto para simplificar
+    setSubmissionMessage("Data de nascimento é obrigatória.");
+    setSubmissionStatus("error");
+    return;
+  }
+
+  try {
+    // AQUI ESTÁ A LÓGICA CORRETA E SIMPLIFICADA
+    const studentData: CreateStudentData = {
+      name: formData.name,
+      birthDate: formatDateForAPI(formData.birthDate), // garantir o formato dd/MM/yyyy
+      grade: formData.grade,
+      difficulties: formData.difficulties,
+      condition: formData.condition,
+      guardianId: Number(user.id)
+    };
+
+    if (editingChild) {
+      console.log('[handleSubmit] Modo de edição. Enviando:', studentData);
+      await studentService.updateStudent(editingChild.id, studentData);
+      setSubmissionMessage("Aluno atualizado com sucesso!");
+    } else {
+      console.log('[handleSubmit] Modo de criação. Enviando:', studentData);
+      await studentService.createStudent(studentData);
+      setSubmissionMessage("Aluno cadastrado com sucesso!");
+    }
     
-    console.log('[handleSubmit] Iniciando submissão do formulário');
-    console.log('[handleSubmit] Tipo de usuário:', user?.role);
-    console.log('[handleSubmit] Dados do formulário:', formData);
-    
-    // Se for responsável, precisa ter guardianId
+    setSubmissionStatus("success");
+    resetForm();
+
+    // Atualiza a lista de filhos do  responsável
     if (user?.role === "RESPONSAVEL") {
-      if (!formData.guardianId) {
+      const updatedChildren = await studentService.getStudentsByResponsible(String(user.id));
+      setChildren(updatedChildren);
 
-        try {
-          const response = await apiService.getCurrentGuardian();
-          if (!response.data?.id) {
-            console.error('[handleSubmit] Erro: ID do responsável não encontrado');
-            setSubmissionStatus("error");
-            setSubmissionMessage("ID do responsável não encontrado. Por favor, faça login novamente.");
-            return;
-          }
-          // Atualiza o guardianId no formData
-          setFormData(prev => ({ ...prev, guardianId: response.data.id }));
-        } catch (err) {
-          console.error('[handleSubmit] Erro ao buscar ID do responsável:', err);
-      setSubmissionStatus("error");
-          setSubmissionMessage("Erro ao buscar dados do responsável. Por favor, faça login novamente.");
-      return;
-        }
-      }
+    }
+    // Se for professora e o cadastro deu certo, pode redirecionar se quiser
+    if (user?.role === "PROFESSORA" && !editingChild) {
+        navigate("/students"); 
+
     }
 
-    // Validação da data de nascimento
-    if (!formData.birthDate || !/^\d{2}\/\d{2}\/\d{4}$/.test(formData.birthDate)) {
-      console.error('[handleSubmit] Erro: Data de nascimento inválida:', formData.birthDate);
-      setSubmissionStatus("error");
-      setSubmissionMessage("Data de nascimento inválida. Use o formato DD/MM/AAAA");
-      return;
-    }
+  } catch (err: any) {
+    console.error('[handleSubmit] Erro durante a submissão:', err);
+    setSubmissionStatus("error");
+    setSubmissionMessage(err.message || "Erro desconhecido. Tente novamente.");
 
-    try {
-      console.log('[handleSubmit] Iniciando criação do estudante');
-      setSubmissionStatus("loading");
-      
-      const studentData: CreateStudentData = {
-        ...formData,
-        birthDate: formData.birthDate
-      };
-
-      console.log('[handleSubmit] Dados do estudante a serem enviados:', studentData);
-
-      if (editingChild) {
-        console.log('[handleSubmit] Modo de edição - Atualizando estudante:', editingChild.id);
-        await studentService.updateStudent(editingChild.id, studentData);
-        setSubmissionMessage("Aluno atualizado com sucesso!");
-      } else {
-        console.log('[handleSubmit] Modo de criação - Criando novo estudante');
-        await studentService.createStudent(studentData);
-        setSubmissionMessage("Aluno cadastrado com sucesso!");
-      }
-      
-      setSubmissionStatus("success");
-      console.log('[handleSubmit] Operação concluída com sucesso');
-
-      // Atualiza a lista de filhos se for responsável
-      if (user?.role === "RESPONSAVEL" && loggedGuardianId) {
-        console.log('[handleSubmit] Atualizando lista de filhos para o responsável:', loggedGuardianId);
-        try {
-        const updatedChildren = await studentService.getStudentsByResponsible(String(loggedGuardianId));
-        setChildren(updatedChildren);
-        } catch (err) {
-          console.error('[handleSubmit] Erro ao atualizar lista de filhos:', err);
-          // Não interrompe o fluxo se falhar ao atualizar a lista
-        }
-      }
-
-      // Reseta o formulário mantendo o guardianId
-      resetForm();
-      
-      // Redireciona após o sucesso apenas se for professora
-      if (user?.role === "PROFESSORA") {
-        console.log('[handleSubmit] Redirecionando para dashboard da professora');
-        navigate("/teacher-dashboard");
-      }
-    } catch (err: any) {
-      console.error('[handleSubmit] Erro durante a submissão:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      
-      setSubmissionStatus("error");
-      setSubmissionMessage(
-        err.response?.data?.message || 
-        "Erro ao cadastrar aluno. Por favor, tente novamente."
-      );
-    }
-  };
+  }
+};
 
   const handleEdit = (child: Student) => {
 

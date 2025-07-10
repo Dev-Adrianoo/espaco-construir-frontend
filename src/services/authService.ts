@@ -106,7 +106,7 @@ const authService = {
     return localStorage.getItem('userType');
   },
 
-  getUserId(): string | null {
+  getUserId(): string | null | number{
     const userType = localStorage.getItem('userType');
     if (userType === 'RESPONSAVEL') {
       return localStorage.getItem('responsavelId');
