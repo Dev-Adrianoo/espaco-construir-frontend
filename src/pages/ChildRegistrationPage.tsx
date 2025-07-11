@@ -71,14 +71,14 @@ const ChildRegistrationPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // Função para formatar a data do input para o formato dd/MM/yyyy
+
   const formatDateForAPI = (inputDate: string): string => {
     if (!inputDate) return "";
-    // Se a data já estiver no formato dd/MM/yyyy, retorna como está
+  
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(inputDate)) {
       return inputDate;
     }
-    // Se a data estiver no formato yyyy-MM-dd (formato do input type="date")
+  
     if (/^\d{4}-\d{2}-\d{2}$/.test(inputDate)) {
       const [year, month, day] = inputDate.split('-');
       return `${day}/${month}/${year}`;
@@ -86,7 +86,7 @@ const ChildRegistrationPage: React.FC = () => {
     return "";
   };
 
-  // Função para converter a data do formato dd/MM/yyyy para o formato do input date
+ 
   const formatDateForInput = (apiDate: string): string => {
     if (!apiDate) return "";
     const [day, month, year] = apiDate.split('/');
@@ -160,13 +160,13 @@ const ChildRegistrationPage: React.FC = () => {
             setLoggedGuardianId(guardianId);
             setLoggedGuardianName(response.data.name);
             
-            // Atualiza o guardianId no formData apenas se não estiver definido
+          
             setFormData(prev => ({
               ...prev,
               guardianId: prev.guardianId || guardianId
             }));
 
-          // Busca os filhos após carregar os dados do responsável
+          
             try {
               setLoadingChildren(true);
               const childrenResponse = await studentService.getStudentsByResponsible(String(guardianId));
@@ -195,7 +195,7 @@ const ChildRegistrationPage: React.FC = () => {
     fetchInitialData();
   }, [user?.role]);
 
-  // Efeito adicional para garantir que o guardianId seja mantido
+
   useEffect(() => {
     if (user?.role === "RESPONSAVEL" && loggedGuardianId && !formData.guardianId) {
       console.log('[useEffect] Restaurando guardianId:', loggedGuardianId);
@@ -211,10 +211,8 @@ const ChildRegistrationPage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
   
-    
     if (name === 'guardianId') {
-      // Se o valor for uma string vazia (da opção "Selecione..."), guardamos como null.
-      // Senão, convertemos o valor para um número inteiro.
+
       const newGuardianId = value === "" ? null : parseInt(value, 10);
       
       setFormData(prev => ({
@@ -222,7 +220,7 @@ const ChildRegistrationPage: React.FC = () => {
         guardianId: newGuardianId
       }));
     } else {
-      // Para todos os outros campos, o comportamento genérico continua.
+     
       setFormData(prev => ({
         ...prev,
         [name]: value
@@ -246,7 +244,7 @@ const ChildRegistrationPage: React.FC = () => {
     setEditingChild(null);
   };
 
-// Substitua sua função handleSubmit inteira por esta:
+
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -258,18 +256,16 @@ const handleSubmit = async (e: React.FormEvent) => {
     return;
   }
 
-  // Validação da data de nascimento
-  if (!formData.birthDate) { // Removi a validação de formato regex por enquanto para simplificar
+  if (!formData.birthDate) {
     setSubmissionMessage("Data de nascimento é obrigatória.");
     setSubmissionStatus("error");
     return;
   }
 
   try {
-    // AQUI ESTÁ A LÓGICA CORRETA E SIMPLIFICADA
     const studentData: CreateStudentData = {
       name: formData.name,
-      birthDate: formatDateForAPI(formData.birthDate), // garantir o formato dd/MM/yyyy
+      birthDate: formatDateForAPI(formData.birthDate), 
       grade: formData.grade,
       difficulties: formData.difficulties,
       condition: formData.condition,
@@ -289,13 +285,15 @@ const handleSubmit = async (e: React.FormEvent) => {
     setSubmissionStatus("success");
     resetForm();
 
-    // Atualiza a lista de filhos do  responsável
+  
     if (user?.role === "RESPONSAVEL") {
       const updatedChildren = await studentService.getStudentsByResponsible(String(user.id));
       setChildren(updatedChildren);
-
+    }else if (user?.role === "PROFESSORA") {
+      const updatedStudents = await apiService.getStudentsRegisteredByMe(Number(user.id));
+      setChildren(updatedStudents.data)
     }
-    // Se for professora e o cadastro deu certo, pode redirecionar se quiser
+   
     if (user?.role === "PROFESSORA" && !editingChild) {
         navigate("/students"); 
 
@@ -334,31 +332,32 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     try {
       await studentService.deleteStudent(childToDelete.id);
-      
-      // Só atualiza a lista se a exclusão foi bem sucedida
-      try {
-      if (loggedGuardianId) {
-        const updatedChildren = await studentService.getStudentsByResponsible(String(loggedGuardianId));
+
+
+      if(user?.role == "PROFESSORA") {
+        const updatedStudents = await apiService.getStudentsRegisteredByMe(Number(user.id));
+        setChildren(updatedStudents.data);
+
+      } else if (user?.role == "RESPONSAVEL") {
+        const updatedChildren = await studentService.getStudentsByResponsible(String(user.id));
         setChildren(updatedChildren);
-        }
-      } catch (refreshError) {
-        console.error('Erro ao atualizar lista após exclusão:', refreshError);
-        // Não mostra erro para o usuário pois a exclusão foi bem sucedida
       }
-      
+  
       setIsDeleteModalOpen(false);
       setChildToDelete(null);
       setSubmissionStatus("success");
       setSubmissionMessage("Aluno removido com sucesso!");
+      
     } catch (err: any) {
       console.error('Erro ao excluir aluno:', err);
       setSubmissionStatus("error");
-      // Usa a mensagem de erro personalizada do serviço
+      
       setSubmissionMessage(err.message || "Erro ao remover aluno.");
+
     }
   };
 
-  // Se não houver usuário logado, mostra mensagem de erro
+ 
   if (!user) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -367,7 +366,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     );
   }
 
-  // Se estiver carregando os dados iniciais
+
   if (loadingLoggedGuardian) {
     return (
       <div className="container mx-auto px-4 py-8 flex justify-center">
@@ -376,7 +375,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     );
   }
 
-  // Se houver erro ao carregar os dados
+
   if (loggedGuardianError) {
     return (
       <div className="container mx-auto px-4 py-8">
