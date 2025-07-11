@@ -204,6 +204,9 @@ export const apiService = {
     difficulties?: string;
   }) => api.post('/students/register', data),
 
+  getStudentsRegisteredByMe: (userId: number) => api.get('/students/registered-by/me'),
+
+
   getStudent: (id: number) => api.get(`/students/${id}`),
   updateStudent: (id: number, data: {
     name: string;
@@ -218,16 +221,16 @@ export const apiService = {
   deleteStudent: (id: number) => api.delete(`/students/${id}`),
   getStudents: () => api.get('/students'),
 
-  // New: Get Students by Teacher ID
+
   getStudentsByTeacherId: (teacherId: number) => 
     api.get<Student[]>(`/students/teacher/${teacherId}`),
 
-  // General endpoints
+ 
   getChildren: () => api.get('/children'),
   getCalendar: () => api.get('/calendar'),
   getRegisters: () => api.get('/registers'),
 
-  // Current user
+  
   getCurrentGuardian: () => api.get('/guardians/me'),
   getCurrentTeacher: () => api.get('/teachers/me'),
 

@@ -118,15 +118,27 @@ const ChildRegistrationPage: React.FC = () => {
           setGuardiansError(error.response?.data?.message || "Erro ao carregar responsáveis.");
         } finally {
           setLoadingGuardians(false);
-        }
+      }
 
 
         setLoadingChildren(true); 
         try {
-          console.log("Usuário é PROFESSORA. Buscando seus alunos associados...");
-          // Corrigido: usar Number() ao invés de number()
-          const studentsResponse = await apiService.getStudentsByTeacherId(Number(user.id));
-          setChildren(studentsResponse.data); 
+          console.log(`[PASSO 1] - KLEITÃO DA MASSA Usuário é professora. Chamada para o Id: ${userId}`)
+
+          const studentsResponse = await apiService.getStudentsRegisteredByMe(Number(userId));
+
+          console.log(`[PASSO 2 ] Resposta recebida da API: `, studentsResponse)
+         
+          const studentList = studentsResponse.data;
+
+
+          if(Array.isArray(studentList)){
+            console.log(`[PASSO 3] - Sucesso! ${studentList.length} alunos encontrados. `)
+            setChildren(studentList)
+          }else{
+            console.warn("[AVISO] - a resposta para a Api não é um array ou está vazia...", studentList);
+            setChildren([])
+          }
         } catch (err) {
           const error = err as AxiosError<{ message: string }>;
           setChildrenError(error.response?.data?.message || "Erro ao carregar alunos da professora.");
