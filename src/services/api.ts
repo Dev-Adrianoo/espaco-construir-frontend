@@ -204,6 +204,7 @@ export const apiService = {
     difficulties?: string;
   }) => api.post('/students/register', data),
 
+  //Pegar students registrados pela professora.
   getStudentsRegisteredByMe: (userId: number) => api.get('/students/registered-by/me'),
 
 

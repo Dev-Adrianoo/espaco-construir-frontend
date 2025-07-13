@@ -3,7 +3,6 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
 import Button from "../components/Button";
-// import Card, { CardHeader, CardBody } from "../components/Card";
 import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import authService from "../services/authService";
@@ -13,7 +12,6 @@ import { useNavigate } from "react-router-dom";
 import studentService, { Student, CreateStudentData } from "../services/studentService";
 import MaskedInput from "../components/MaskedInput";
 import { UserPlus, CalendarDays, GraduationCap, BookOpen, AlertCircle, Brain } from 'lucide-react';
-import { number } from "framer-motion";
 
 interface Guardian {
   id: number;
