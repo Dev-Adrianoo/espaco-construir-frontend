@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Tooltip from '@tippyjs/react';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Card, { CardHeader, CardBody } from "../components/Card";
@@ -17,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { apiService } from "../services/api";
+
 import LoadingSpinner from "../components/LoadingSpinner";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
@@ -317,6 +319,8 @@ const TeacherDashboardPage: React.FC = () => {
     );
   }
 
+  const isHistoryDisabled = true;
+
   return (
     <div className="w-full min-h-screen flex flex-col px-2 sm:px-4 md:px-8 py-4 sm:py-8 bg-gray-50">
       <div className="w-full max-w-[1600px] mx-auto">
@@ -434,15 +438,23 @@ const TeacherDashboardPage: React.FC = () => {
                           >
                             <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                           </button>
+                          <Tooltip
+                          content="Este botão ficará disponível após a aula."
+                          placement="top"
+                          disabled={canAddHistory}
+                          >
+                          <span className="inline-block">
                           <Button 
                             variant="secondary"
                             className="p-1"
                             onClick={() => handleOpenHistory(scheduleItem.studentId.toString(), scheduleItem.id)} 
                             disabled={!canAddHistory} 
                             data-title={canAddHistory ? "Adicionar histórico" : "Só é possível adicionar histórico após a aula"}
-                          >
+                            >
                             <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
                           </Button>
+                          </span>
+                          </Tooltip>
                         </div>
                       </div>
                     ))}
@@ -541,6 +553,7 @@ const TeacherDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
 
       {/* History Modal */}
       {showHistoryModal && (
