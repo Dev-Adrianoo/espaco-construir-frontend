@@ -518,7 +518,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <div className="flex items-center gap-2 mb-4">
               <BookOpen className="w-6 h-6 text-blue-600" />
               <h2 className="text-xl font-bold text-gray-900">
-                Alunos Cadastrados
+                {user?.role === "PROFESSORA" ? 'Alunos Cadastrados' : 'Filhos Cadastrados'}
               </h2>
             </div>
             

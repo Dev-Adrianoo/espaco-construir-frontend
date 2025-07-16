@@ -41,6 +41,7 @@ interface Child {
   classType: string;
   difficulties: string;
   condition: string;
+  guardianId?: number;
 }
 
 interface ApiChild {
@@ -74,7 +75,7 @@ interface ScheduleWithStudents {
   hora: string;
   alunos: string[];
   studentIds: number[];
-  scheduleIds: number[];  // IDs dos agendamentos retornados pela API
+  scheduleIds: number[];  
 }
 
 const SchedulePage: React.FC = (): JSX.Element => {
@@ -91,7 +92,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     const dateStr = format(date, "yyyy-MM-dd");
     initialSchedule[dateStr] = {};
 
-    // Adiciona slots de tempo para cada dia
+
     TIME_SLOTS.forEach((time) => {
       initialSchedule[dateStr][time] = {
         childId: "",
@@ -102,11 +103,16 @@ const SchedulePage: React.FC = (): JSX.Element => {
   }
 
   const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
-  const [children, setChildren] = useState<Child[]>([]);
+  const [userAssociatedPeople, setUserAssociatedPeople] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [childrenError, setChildrenError] = useState<string | null>(null);
   const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+  const [showIntentModal, setShowIntentModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [teacherRegisteredStudents, setTeacherRegisteredStudents] = useState<Child[]>([]);
+  const [allStudents, setAllStudents] = useState<Child[]>([])
+  const [bookingMode, setBookingMode] = useState<'parent' | 'teacher'>('parent');
   const [selectedSlot, setSelectedSlot] = useState<{
     date: string;
     time: string;
@@ -155,48 +161,71 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   const fetchSchedule = async () => {
     if (!user) return;
-    
+    setLoadingSchedule(true);
+    setScheduleError(null);
+
     try {
-      setLoadingSchedule(true);
-      setScheduleError(null);
-
     if (user.role === "RESPONSAVEL") {
-      const responsavelId = user.id;
-      try {
-        setLoadingChildren(true);
-        const response = await apiService.getChildrenByResponsible(
-          Number(responsavelId)
-        );
-        const formattedChildren = response.data.map((child: ApiChild) => ({
-          ...child,
-          id: String(child.id),
-        }));
-        setChildren(formattedChildren);
-        setSelectedChildren([]);
-      } catch (err) {
-        const error = err as AxiosError<{ message: string }>;
-        setChildrenError(
-          error.response?.data?.message || "Erro ao carregar seus filhos."
-        );
-      } finally {
-        setLoadingChildren(false);
-      }
-
-      try {
-        setLoadingTeachers(true);
-        const teachersResponse = await apiService.getTeachers();
-        setTeachers(teachersResponse.data);
-        if (teachersResponse.data.length > 0) {
-          setSelectedTeacherId(String(teachersResponse.data[0].id));
+        const responsavelId = user.id;
+        try {
+          setLoadingChildren(true);
+          const response = await apiService.getChildrenByResponsible(Number(responsavelId));
+          const formattedChildren = response.data.map((child: ApiChild) => ({
+            ...child,
+            id: String(child.id),
+          }));
+          setUserAssociatedPeople(formattedChildren);
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setChildrenError(
+            error.response?.data?.message || "Erro ao carregar seus filhos."
+          );
+        } finally {
+          setLoadingChildren(false);
         }
-      } catch (err) {
-        const error = err as AxiosError<{ message: string }>;
-        setTeachersError(
-          error.response?.data?.message || "Erro ao carregar professoras."
-        );
-      } finally {
-        setLoadingTeachers(false);
-      }
+
+        try {
+          setLoadingTeachers(true);
+          const teachersResponse = await apiService.getTeachers();
+          setTeachers(teachersResponse.data);
+          if (teachersResponse.data.length > 0) {
+            setSelectedTeacherId(String(teachersResponse.data[0].id));
+          }
+        } catch (err) {
+          const error = err as AxiosError<{ message: string }>;
+          setTeachersError(
+            error.response?.data?.message || "Erro ao carregar professoras."
+          );
+        } finally {
+          setLoadingTeachers(false);
+        }
+      } else if (user.role === "PROFESSORA") {
+        try {
+          setLoadingChildren(true);
+          const registeredStudentsResponse = await apiService.getStudentsRegisteredByMe(Number(user.id));
+          const taughtStudentsResponse = await apiService.getStudentsByTeacherId(Number(user.id));
+
+          // Popula teacherRegisteredStudents com os alunos que a professora cadastrou
+          setTeacherRegisteredStudents(registeredStudentsResponse.data.map((student: any) => ({
+            ...student,
+            id: String(student.id),
+          })));
+
+          const combinedStudents = [...registeredStudentsResponse.data, ...taughtStudentsResponse.data];
+
+          // Remove duplicatas baseadas no ID do aluno
+          const uniqueStudents = Array.from(new Map(combinedStudents.map(student => [student.id, student])).values());
+
+          const formattedStudents = uniqueStudents.map((student: any) => ({
+            ...student,
+            id: String(student.id),
+          }));
+          setUserAssociatedPeople(formattedStudents);
+        } catch (err) {
+          setChildrenError("Erro ao carregar seus alunos.");
+        } finally {
+          setLoadingChildren(false);
+        }
       }
 
       // Busca os agendamentos para todos os tipos de usuário
@@ -262,113 +291,102 @@ const SchedulePage: React.FC = (): JSX.Element => {
     return horario ? { alunos: horario.alunos, studentIds: horario.studentIds.map(String) } : { alunos: [], studentIds: [] };
   }
 
-  // Handle slot click
   const handleSlotClick = (date: string, time: string) => {
-    if (!user) return;
+    if (!user) {
+      console.log('[ AVISO ] Usuário não encontrado ao clicar no slot');
+      return;
+    }
 
-    const { alunos: alunosAgendados, studentIds } = getAlunosAgendados(date, time);
-    
-    // Se for responsável, só pode interagir com seus próprios filhos
-    if (user.role === "RESPONSAVEL") {
-      const meusFilhos = children.map(child => child.name);
-      const alunosAgendadosQuePodemosVer = alunosAgendados.filter(aluno => 
-        meusFilhos.includes(aluno)
-      );
+    const { alunos: alunosAgendados } = getAlunosAgendados(date, time);
+    console.log(`[ AVISO ] Slot clicado: ${date} ${time} | user.role: ${user.role}`);
+    console.log(`[ AVISO ] Alunos agendados nesse slot:`, alunosAgendados);
 
-      if (alunosAgendadosQuePodemosVer.length > 0) {
-        // Se tem filhos agendados neste horário, mostra as opções
-        setSlotActionData({
-          date,
-          time,
-          scheduleId: Number(studentIds[0]), // Assumindo que o ID está na mesma ordem dos nomes
-          childName: alunosAgendadosQuePodemosVer[0],
-          filhosNaoAgendados: children.filter(child => !alunosAgendados.includes(child.name))
-        });
-        setShowSlotActionModal(true);
-        return;
-      }
+    setSelectedSlot({ date, time });
+    console.log('[ AVISO ] setSelectedSlot chamado');
 
-      // Se não tem filhos agendados, verifica se pode agendar
-      const filhosDisponiveis = children.filter(child => !alunosAgendados.includes(child.name));
-      if (filhosDisponiveis.length === 0) {
-        toast.error("Todos os seus filhos já estão agendados neste horário.");
-        return;
-      }
+    if (alunosAgendados.length > 0) {
+      setModalAlunos(alunosAgendados);
+      setShowBookingModal(false);
+      console.log('[ AVISO ] setModalAlunos chamado, setShowBookingModal(false)');
     } else {
-      // Para professores, mostra todos os alunos
-      if (alunosAgendados.length > 0) {
-        setModalAlunos(alunosAgendados);
-        return;
-      }
-    }
-
-    // Se chegou aqui, pode agendar
-      setSelectedSlot({ date, time });
       setShowBookingModal(true);
+      setModalAlunos(null);
+      console.log('[ AVISO ] setShowBookingModal(true) chamado, setModalAlunos(null)');
+    }
   };
+  
 
-  // Handle booking confirmation
   const handleConfirmBooking = async () => {
-    if (!selectedSlot || !selectedTeacherId || selectedChildren.length === 0) {
-      toast.error("Por favor, selecione um slot, pelo menos um aluno e professor.");
-      return;
-    }
-
-    const guardianId = authService.getUserId();
-    if (!guardianId) {
-      toast.error("Erro: Certifique-se de estar logado.");
-      return;
-    }
+    if (!selectedSlot || !user) return;
 
     try {
-      // Verifica se já tem alunos agendados neste horário
-      const { alunos: alunosJaAgendados } = getAlunosAgendados(selectedSlot.date, selectedSlot.time);
+      if (user.role === 'RESPONSAVEL') {
+        if (!selectedTeacherId || selectedChildren.length === 0) {
+          toast.error("Por favor, selecione um slot, pelo menos um aluno e uma professora.");
+          return;
+        }
+        const guardianId = authService.getUserId();
+        if (!guardianId) {
+          toast.error("Erro: Certifique-se de estar logado.");
+          return;
+        }
+        const studentIds = selectedChildren.map(id => Number(id));
+        const firstChild = userAssociatedPeople.find(child => child.id === selectedChildren[0]);
 
-      // Filtra os IDs dos filhos que ainda não estão agendados
-      const studentIds = selectedChildren
-        .map((id) => children.find((child) => child.id === id))
-        .filter((child) => !!child && !alunosJaAgendados.includes(child!.name))
-        .map((child) => Number(child!.id));
+        await apiService.bookClass({
+          studentIds,
+          date: selectedSlot.date,
+          time: selectedSlot.time,
+          modality: "IN_PERSON",
+          guardianId: String(guardianId),
+          teacherId: Number(selectedTeacherId),
+          difficulties: firstChild?.difficulties || "",
+          condition: firstChild?.condition || "",
+        });
+        toast.success("Aula agendada com sucesso!");
 
-      if (studentIds.length === 0) {
-        toast.error("Nenhum aluno selecionado ou todos já estão agendados neste horário.");
-        return;
+      } else if (user.role === 'PROFESSORA') {
+        if (!selectedStudentId) {
+          toast.error("Por favor, selecione um aluno para agendar.");
+          return;
+        }
+        
+        const studentToBook = userAssociatedPeople.find(student => student.id === selectedStudentId);
+
+        if (!studentToBook || !user.id) {
+          toast.error("Não foi possível encontrar os dados do aluno ou do professor.");
+          return;
+        }
+
+        await apiService.bookClass({
+          studentIds: [Number(selectedStudentId)],
+          date: selectedSlot.date,
+          time: selectedSlot.time,
+          modality: "IN_PERSON",
+          guardianId: String(user.id), // O guardianId da professora é o ID dela mesma
+          teacherId: Number(user.id),
+          difficulties: studentToBook.difficulties || "",
+          condition: studentToBook.condition || "",
+        });
+        toast.success("Aula agendada com sucesso!");
       }
 
-      const firstChild = children.find((child) => child.id === selectedChildren[0]);
-
-      await apiService.bookClass({
-        studentIds,
-        date: selectedSlot.date,
-        time: selectedSlot.time,
-        modality: "IN_PERSON",
-        guardianId,
-        teacherId: Number(selectedTeacherId),
-        difficulties: firstChild?.difficulties || "",
-        condition: firstChild?.condition || "",
-      });
-
-      // Atualiza os dados
       await fetchSchedule();
-
-      // Fecha o modal e limpa a seleção
       setShowBookingModal(false);
       setSelectedSlot(null);
       setSelectedChildren([]);
+      setSelectedStudentId('');
 
-      toast.success("Aula agendada com sucesso!");
     } catch (error) {
       const err = error as AxiosError<{ message: string }>;
-      toast.error(
-        err.response?.data?.message || "Erro ao tentar agendar a aula."
-      );
+      toast.error(err.response?.data?.message || "Erro ao tentar agendar a aula.");
     }
   };
 
   // Função para verificar filhos disponíveis para agendamento
   const getFilhosDisponiveis = (horario: string) => {
-    if (!modalAlunos || !children) return [];
-    return children.filter(child => !modalAlunos.includes(child.name));
+    if (!modalAlunos || !userAssociatedPeople) return [];
+    return userAssociatedPeople.filter(child => !modalAlunos.includes(child.name));
   };
 
   const handleCancelSchedule = async (
@@ -379,10 +397,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
     try {
       console.log('[handleCancelSchedule] Iniciando cancelamento para:', { date, time, studentName });
       setIsCanceling(true);
-      toast.loading('Cancelando agendamento...');
+      
       
       // Busca o ID do aluno pelo nome
-      const student = children.find(child => child.name === studentName);
+      const student = userAssociatedPeople.find(child => child.name === studentName);
       if (!student) {
         console.error('[handleCancelSchedule] Aluno não encontrado:', studentName);
         toast.error('Aluno não encontrado');
@@ -510,7 +528,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     );
   }
 
-  if (user?.role === "RESPONSAVEL" && children.length === 0) {
+  if (user?.role === "RESPONSAVEL" && userAssociatedPeople.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
         <img
@@ -551,337 +569,184 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-  if (user?.role === "PROFESSORA") {
-    if (scheduleError) {
-      return (
-        <div className="max-w-4xl mx-auto mt-8 text-center text-red-500">
-          <p>Erro ao carregar dados:</p>
-          <p>{scheduleError}</p>
-          <p>Por favor, tente novamente mais tarde.</p>
-        </div>
-      );
-    }
-    return (
-      <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">
-          Agenda da Professora
-        </h1>
-        <p className="mt-1 text-gray-600 mb-4">
-          Veja todos os agendamentos da semana.
-        </p>
-        <div className="flex-grow overflow-y-auto">
-          {/* Desktop view */}
-          <div className="hidden md:block w-full">
-            {/* Cabeçalho: horários + dias da semana */}
-            <div className="grid grid-cols-8 gap-1">
-              <div></div> {/* Empty cell for time column header */}
-              {weekDays.map((day, index) => {
-                const date = addDays(startDate, index);
-                const isToday =
-                  format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
-                return (
-                  <div
-                    key={day}
-                    className={`text-center text-sm font-semibold text-gray-700 ${
-                      isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
-                    }`}
-                  >
-                    {day}
-                  </div>
-                );
-              })}
-            </div>
-            {/* Grade principal: horários + slots */}
-            <div className="grid grid-cols-8 gap-1">
-              {/* Coluna de horários */}
-              <div className="flex flex-col">
-                {TIME_SLOTS.map((time) => (
-                  <div
-                    key={time}
-                    className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
-                  >
-                    {time}
-                  </div>
-                ))}
-              </div>
-              {/* 7 colunas para os dias */}
-              {Array.from({ length: 7 }).map((_, i) => {
-                const date = addDays(startDate, i);
-                const dateStr = format(date, "yyyy-MM-dd");
-                return (
-                  <div key={i} className="flex flex-col">
-                    {TIME_SLOTS.map((time) => {
-                      const { alunos: alunosAgendados } = getAlunosAgendados(dateStr, time);
-                      const isBooked = alunosAgendados.length > 0;
-                      return (
-                        <div
-                          key={time}
-                          className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                            isBooked
-                              ? "bg-blue-50 hover:bg-blue-100"
-                              : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSlotClick(dateStr, time);
-                          }}
-                        >
-                          <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
-                            {time}
-                          </span>
-                          {isBooked ? (
-                            <span
-                              className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
-                              style={{ wordBreak: "break-word", whiteSpace: "normal" }}
-                            >
-                              {alunosAgendados.length === 0 ? (
-                                <span>Nenhum aluno agendado</span>
-                              ) : alunosAgendados.length > 1 ? (
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-medium">
-                                    {user?.role === "RESPONSAVEL" 
-                                      ? `${alunosAgendados.length} filhos agendados`
-                                      : `${alunosAgendados.length} alunos agendados`
-                                    }
-                                  </span>
-                                <button
-                                    onClick={e => {
-                                    e.stopPropagation();
-                                      setModalAlunos(alunosAgendados);
-                                  }}
-                                    className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
-                                >
-                                    Ver nomes
-                                </button>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setModalAlunos(alunosAgendados);
-                                  }}
-                                >
-                                  <span className="font-medium">{alunosAgendados[0]}</span>
-                                  <button
-                                    className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto"
-                                  >
-                                    Opções
-                                  </button>
-                                </div>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-800 font-medium mb-2">
-                              Horário disponível
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {/* Mobile view */}
-          <div className="md:hidden">
-            <div className="flex items-center justify-between mb-4">
-              <Button
-                variant="secondary"
-                onClick={() => handlePreviousDay()}
-                disabled={currentDayIndex === 0}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setShowWeekCalendarModal(true)}
-                className="flex items-center gap-2 text-lg font-semibold"
-              >
-                <Calendar className="w-5 h-5" />
-                {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
-                  locale: ptBR,
-                })}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => handleNextDay()}
-                disabled={currentDayIndex === 6}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {(() => {
-                const date = addDays(startDate, currentDayIndex);
-                const dateStr = format(date, "yyyy-MM-dd");
-                return TIME_SLOTS.map((time) => {
-                  const { alunos: alunosAgendados } = getAlunosAgendados(dateStr, time);
-                  const isBooked = alunosAgendados.length > 0;
+  return (
+    <>
+      {user?.role === "PROFESSORA" ? (
+        <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            Agenda da Professora
+          </h1>
+          <p className="mt-1 text-gray-600 mb-4">
+            Veja todos os agendamentos da semana.
+          </p>
+          <div className="flex-grow overflow-y-auto">
+            {/* Desktop view */}
+            <div className="hidden md:block w-full">
+              {/* Cabeçalho: horários + dias da semana */}
+              <div className="grid grid-cols-8 gap-1">
+                <div></div> {/* Empty cell for time column header */}
+                {weekDays.map((day, index) => {
+                  const date = addDays(startDate, index);
+                  const isToday =
+                    format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
                   return (
                     <div
-                      key={time}
-                      className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                        isBooked
-                          ? "bg-blue-50 hover:bg-blue-100"
-                          : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
+                      key={day}
+                      className={`text-center text-sm font-semibold text-gray-700 ${
+                        isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSlotClick(dateStr, time);
-                      }}
                     >
-                      <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
-                        {time}
-                      </span>
-                      {isBooked ? (
-                        <span
-                          className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
-                          style={{ wordBreak: "break-word", whiteSpace: "normal" }}
-                        >
-                          {alunosAgendados.length === 0 ? (
-                            <span>Nenhum aluno agendado</span>
-                          ) : alunosAgendados.length > 1 ? (
-                            <div className="flex flex-col gap-1">
-                              <span className="font-medium">
-                                {user?.role === "RESPONSAVEL" 
-                                  ? `${alunosAgendados.length} filhos agendados`
-                                  : `${alunosAgendados.length} alunos agendados`
-                                }
-                              </span>
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setModalAlunos(alunosAgendados);
-                                }}
-                                className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
-                              >
-                                Ver nomes
-                              </button>
-                            </div>
-                          ) : (
-                            <div 
-                              className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setModalAlunos(alunosAgendados);
-                              }}
-                            >
-                              <span className="font-medium">{alunosAgendados[0]}</span>
-                              <button
-                                className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto"
-                              >
-                                Opções
-                              </button>
-                            </div>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-800 font-medium mb-2">
-                          Horário disponível
-                        </span>
-                      )}
+                      {day}
                     </div>
-                  );
-                });
-              })()}
-            </div>
-            {/* Modal de seleção de dia da semana para mobile */}
-            <Modal
-              isOpen={showWeekCalendarModal}
-              onClose={() => setShowWeekCalendarModal(false)}
-              title="Selecione o dia da semana"
-            >
-              <div className="grid grid-cols-4 gap-3">
-                {Array.from({ length: 7 }).map((_, i) => {
-                  const date = addDays(startDate, i);
-                  const isSelected = i === currentDayIndex;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setCurrentDayIndex(i);
-                        setShowWeekCalendarModal(false);
-                      }}
-                      className={`p-6 rounded-lg text-center transition-colors ${
-                        isSelected
-                          ? "bg-primary text-white"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                      }`}
-                    >
-                      <div className="text-[0.6rem] font-medium">
-                        {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
-                      </div>
-                      <div className="text-lg font-bold">
-                        {format(date, "dd")}
-                      </div>
-                    </button>
                   );
                 })}
               </div>
-            </Modal>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Agendar Aula</h1>
-      <p className="mt-1 text-gray-600 mb-4">
-        Selecione um horário disponível para agendar a aula do seu filho.
-      </p>
-
-      <div className="flex-grow overflow-y-auto">
-        {/* Desktop view */}
-        <div className="hidden md:block w-full">
-          {/* Cabeçalho: horários + dias da semana */}
-          <div className="grid grid-cols-8 gap-1">
-            <div></div> {/* Empty cell for time column header */}
-            {weekDays.map((day, index) => {
-              const date = addDays(startDate, index);
-              const isToday =
-                format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
-              return (
-                <div
-                  key={day}
-                  className={`text-center text-sm font-semibold text-gray-700 ${
-                    isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
-                  }`}
-                >
-                  {day}
+              {/* Grade principal: horários + slots */}
+              <div className="grid grid-cols-8 gap-1">
+                {/* Coluna de horários */}
+                <div className="flex flex-col">
+                  {TIME_SLOTS.map((time) => (
+                    <div
+                      key={time}
+                      className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
+                    >
+                      {time}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-          {/* Grade principal: horários + slots */}
-          <div className="grid grid-cols-8 gap-1">
-            {/* Coluna de horários */}
-            <div className="flex flex-col">
-              {TIME_SLOTS.map((time) => (
-                <div
-                  key={time}
-                  className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
-                >
-                  {time}
-                </div>
-              ))}
+                {/* 7 colunas para os dias */}
+                {Array.from({ length: 7 }).map((_, i) => {
+                  const date = addDays(startDate, i);
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  return (
+                    <div key={i} className="flex flex-col">
+                      {TIME_SLOTS.map((time) => {
+                        const { alunos: alunosAgendados } = getAlunosAgendados(
+                          dateStr,
+                          time
+                        );
+                        const isBooked = alunosAgendados.length > 0;
+                        return (
+                          <div
+                            key={time}
+                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                              isBooked
+                                ? "bg-blue-50 hover:bg-blue-100"
+                                : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSlotClick(dateStr, time);
+                            }}
+                          >
+                            <span
+                              className={`pt-2 text-sm ${
+                                isBooked
+                                  ? "text-blue-800"
+                                  : "text-emerald-800"
+                              }`}
+                            >
+                              {time}
+                            </span>
+                            {isBooked ? (
+                              <span
+                                className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
+                                style={{
+                                  wordBreak: "break-word",
+                                  whiteSpace: "normal",
+                                }}
+                              >
+                                {alunosAgendados.length === 0 ? (
+                                  <span>Nenhum aluno agendado</span>
+                                ) : alunosAgendados.length > 1 ? (
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-medium">
+                                      {user?.role === "RESPONSAVEL"
+                                        ? `${alunosAgendados.length} filhos agendados`
+                                        : `${alunosAgendados.length} alunos agendados`}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setModalAlunos(alunosAgendados);
+                                      }}
+                                      className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
+                                    >
+                                      Ver nomes
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setModalAlunos(alunosAgendados);
+                                    }}
+                                  >
+                                    <span className="font-medium">
+                                      {alunosAgendados[0]}
+                                    </span>
+                                    <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
+                                      Opções
+                                    </button>
+                                  </div>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-800 font-medium mb-2">
+                                Horário disponível
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            {/* 7 colunas para os dias */}
-            {Array.from({ length: 7 }).map((_, i) => {
-              const date = addDays(startDate, i);
-              const dateStr = format(date, "yyyy-MM-dd");
-              return (
-                <div key={i} className="flex flex-col">
-                  {TIME_SLOTS.map((time) => {
-                    const { alunos: alunosAgendados } = getAlunosAgendados(dateStr, time);
+            {/* Mobile view */}
+            <div className="md:hidden">
+              <div className="flex items-center justify-between mb-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => handlePreviousDay()}
+                  disabled={currentDayIndex === 0}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowWeekCalendarModal(true)}
+                  className="flex items-center gap-2 text-lg font-semibold"
+                >
+                  <Calendar className="w-5 h-5" />
+                  {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                    locale: ptBR,
+                  })}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleNextDay()}
+                  disabled={currentDayIndex === 6}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {(() => {
+                  const date = addDays(startDate, currentDayIndex);
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  return TIME_SLOTS.map((time) => {
+                    const { alunos: alunosAgendados } = getAlunosAgendados(
+                      dateStr,
+                      time
+                    );
                     const isBooked = alunosAgendados.length > 0;
                     return (
                       <div
                         key={time}
-                        className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
                           isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
@@ -891,26 +756,32 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           handleSlotClick(dateStr, time);
                         }}
                       >
-                        <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
+                        <span
+                          className={`pt-2 text-sm ${
+                            isBooked ? "text-blue-800" : "text-emerald-800"
+                          }`}
+                        >
                           {time}
                         </span>
                         {isBooked ? (
                           <span
                             className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
-                            style={{ wordBreak: "break-word", whiteSpace: "normal" }}
+                            style={{
+                              wordBreak: "break-word",
+                              whiteSpace: "normal",
+                            }}
                           >
                             {alunosAgendados.length === 0 ? (
                               <span>Nenhum aluno agendado</span>
                             ) : alunosAgendados.length > 1 ? (
                               <div className="flex flex-col gap-1">
                                 <span className="font-medium">
-                                  {user?.role === "RESPONSAVEL" 
+                                  {user?.role === "RESPONSAVEL"
                                     ? `${alunosAgendados.length} filhos agendados`
-                                    : `${alunosAgendados.length} alunos agendados`
-                                  }
+                                    : `${alunosAgendados.length} alunos agendados`}
                                 </span>
                                 <button
-                                  onClick={e => {
+                                  onClick={(e) => {
                                     e.stopPropagation();
                                     setModalAlunos(alunosAgendados);
                                   }}
@@ -920,17 +791,17 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                 </button>
                               </div>
                             ) : (
-                              <div 
+                              <div
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setModalAlunos(alunosAgendados);
                                 }}
                               >
-                                <span className="font-medium">{alunosAgendados[0]}</span>
-                                <button
-                                  className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto"
-                                >
+                                <span className="font-medium">
+                                  {alunosAgendados[0]}
+                                </span>
+                                <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
                                   Opções
                                 </button>
                               </div>
@@ -943,158 +814,345 @@ const SchedulePage: React.FC = (): JSX.Element => {
                         )}
                       </div>
                     );
+                  });
+                })()}
+              </div>
+              {/* Modal de seleção de dia da semana para mobile */}
+              <Modal
+                isOpen={showWeekCalendarModal}
+                onClose={() => setShowWeekCalendarModal(false)}
+                title="Selecione o dia da semana"
+              >
+                <div className="grid grid-cols-4 gap-3">
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const date = addDays(startDate, i);
+                    const isSelected = i === currentDayIndex;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setCurrentDayIndex(i);
+                          setShowWeekCalendarModal(false);
+                        }}
+                        className={`p-6 rounded-lg text-center transition-colors ${
+                          isSelected
+                            ? "bg-primary text-white"
+                            : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                        }`}
+                      >
+                        <div className="text-[0.6rem] font-medium">
+                          {format(date, "EEE", { locale: ptBR }).substring(
+                            0,
+                            3
+                          )}
+                        </div>
+                        <div className="text-lg font-bold">
+                          {format(date, "dd")}
+                        </div>
+                      </button>
+                    );
                   })}
                 </div>
-              );
-            })}
+              </Modal>
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            Agendar Aula
+          </h1>
+          <p className="mt-1 text-gray-600 mb-4">
+            Selecione um horário disponível para agendar a aula do seu filho.
+          </p>
 
-        {/* Mobile view */}
-        <div className="md:hidden">
-          <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="secondary"
-              onClick={() => handlePreviousDay()}
-              disabled={currentDayIndex === 0}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowWeekCalendarModal(true)}
-              className="flex items-center gap-2 text-lg font-semibold"
-            >
-              <Calendar className="w-5 h-5" />
-              {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
-                locale: ptBR,
-              })}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => handleNextDay()}
-              disabled={currentDayIndex === 6}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </div>
-          <div className="space-y-1">
-            {(() => {
-              const date = addDays(startDate, currentDayIndex);
-              const dateStr = format(date, "yyyy-MM-dd");
-              return TIME_SLOTS.map((time) => {
-                const { alunos: alunosAgendados } = getAlunosAgendados(dateStr, time);
-                const isBooked = alunosAgendados.length > 0;
-                return (
-                  <div
-                    key={time}
-                    className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                      isBooked
-                        ? "bg-blue-50 hover:bg-blue-100"
-                        : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSlotClick(dateStr, time);
-                    }}
-                  >
-                    <span className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"}`}>
+          <div className="flex-grow overflow-y-auto">
+            {/* Desktop view */}
+            <div className="hidden md:block w-full">
+              {/* Cabeçalho: horários + dias da semana */}
+              <div className="grid grid-cols-8 gap-1">
+                <div></div> {/* Empty cell for time column header */}
+                {weekDays.map((day, index) => {
+                  const date = addDays(startDate, index);
+                  const isToday =
+                    format(date, "yyyy-MM-dd") ===
+                    format(today, "yyyy-MM-dd");
+                  return (
+                    <div
+                      key={day}
+                      className={`text-center text-sm font-semibold text-gray-700 ${
+                        isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
+                      }`}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Grade principal: horários + slots */}
+              <div className="grid grid-cols-8 gap-1">
+                {/* Coluna de horários */}
+                <div className="flex flex-col">
+                  {TIME_SLOTS.map((time) => (
+                    <div
+                      key={time}
+                      className="h-24 flex items-center justify-end pr-2 text-xs text-gray-500 border-r border-gray-200"
+                    >
                       {time}
-                    </span>
-                    {isBooked ? (
-                      <span
-                        className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
-                        style={{ wordBreak: "break-word", whiteSpace: "normal" }}
-                      >
-                        {alunosAgendados.length === 0 ? (
-                          <span>Nenhum aluno agendado</span>
-                        ) : alunosAgendados.length > 1 ? (
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">
-                              {user?.role === "RESPONSAVEL" 
-                                ? `${alunosAgendados.length} filhos agendados`
-                                : `${alunosAgendados.length} alunos agendados`
-                              }
-                            </span>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                setModalAlunos(alunosAgendados);
-                              }}
-                              className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
-                            >
-                              Ver nomes
-                            </button>
-                          </div>
-                        ) : (
-                          <div 
-                            className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
+                    </div>
+                  ))}
+                </div>
+                {/* 7 colunas para os dias */}
+                {Array.from({ length: 7 }).map((_, i) => {
+                  const date = addDays(startDate, i);
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  return (
+                    <div key={i} className="flex flex-col">
+                      {TIME_SLOTS.map((time) => {
+                        const { alunos: alunosAgendados } = getAlunosAgendados(
+                          dateStr,
+                          time
+                        );
+                        const isBooked = alunosAgendados.length > 0;
+                        return (
+                          <div
+                            key={time}
+                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                              isBooked
+                                ? "bg-blue-50 hover:bg-blue-100"
+                                : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
+                            }`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setModalAlunos(alunosAgendados);
+                              handleSlotClick(dateStr, time);
                             }}
                           >
-                            <span className="font-medium">{alunosAgendados[0]}</span>
-                            <button
-                              className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto"
+                            <span
+                              className={`pt-2 text-sm ${
+                                isBooked
+                                  ? "text-blue-800"
+                                  : "text-emerald-800"
+                              }`}
                             >
-                              Opções
-                            </button>
+                              {time}
+                            </span>
+                            {isBooked ? (
+                              <span
+                                className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
+                                style={{
+                                  wordBreak: "break-word",
+                                  whiteSpace: "normal",
+                                }}
+                              >
+                                {alunosAgendados.length === 0 ? (
+                                  <span>Nenhum aluno agendado</span>
+                                ) : alunosAgendados.length > 1 ? (
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-medium">
+                                      {user?.role === "RESPONSAVEL"
+                                        ? `${alunosAgendados.length} filhos agendados`
+                                        : `${alunosAgendados.length} alunos agendados`}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setModalAlunos(alunosAgendados);
+                                      }}
+                                      className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
+                                    >
+                                      Ver nomes
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setModalAlunos(alunosAgendados);
+                                    }}
+                                  >
+                                    <span className="font-medium">
+                                      {alunosAgendados[0]}
+                                    </span>
+                                    <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
+                                      Opções
+                                    </button>
+                                  </div>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-800 font-medium mb-2">
+                                Horário disponível
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-emerald-800 font-medium mb-2">
-                        Horário disponível
-                      </span>
-                    )}
-                  </div>
-                );
-              });
-            })()}
-          </div>
-          {/* Modal de seleção de dia da semana para mobile */}
-          <Modal
-            isOpen={showWeekCalendarModal}
-            onClose={() => setShowWeekCalendarModal(false)}
-            title="Selecione o dia da semana"
-          >
-            <div className="grid grid-cols-4 gap-3">
-              {Array.from({ length: 7 }).map((_, i) => {
-                const date = addDays(startDate, i);
-                const isSelected = i === currentDayIndex;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setCurrentDayIndex(i);
-                      setShowWeekCalendarModal(false);
-                    }}
-                    className={`p-6 rounded-lg text-center transition-colors ${
-                      isSelected
-                        ? "bg-primary text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                    }`}
-                  >
-                    <div className="text-[0.6rem] font-medium">
-                      {format(date, "EEE", { locale: ptBR }).substring(0, 3)}
+                        );
+                      })}
                     </div>
-                    <div className="text-lg font-bold">
-                      {format(date, "dd")}
-                    </div>
-                  </button>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </Modal>
+
+            {/* Mobile view */}
+            <div className="md:hidden">
+              <div className="flex items-center justify-between mb-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => handlePreviousDay()}
+                  disabled={currentDayIndex === 0}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowWeekCalendarModal(true)}
+                  className="flex items-center gap-2 text-lg font-semibold"
+                >
+                  <Calendar className="w-5 h-5" />
+                  {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                    locale: ptBR,
+                  })}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleNextDay()}
+                  disabled={currentDayIndex === 6}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {(() => {
+                  const date = addDays(startDate, currentDayIndex);
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  return TIME_SLOTS.map((time) => {
+                    const { alunos: alunosAgendados } = getAlunosAgendados(
+                      dateStr,
+                      time
+                    );
+                    const isBooked = alunosAgendados.length > 0;
+                    return (
+                      <div
+                        key={time}
+                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
+                          isBooked
+                            ? "bg-blue-50 hover:bg-blue-100"
+                            : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSlotClick(dateStr, time);
+                        }}
+                      >
+                        <span
+                          className={`pt-2 text-sm ${
+                            isBooked ? "text-blue-800" : "text-emerald-800"
+                          }`}
+                        >
+                          {time}
+                        </span>
+                        {isBooked ? (
+                          <span
+                            className="w-full px-2 py-1.5 rounded-md text-sm mb-2 bg-blue-500 text-white text-center break-words shadow-sm hover:bg-blue-600 transition-colors"
+                            style={{
+                              wordBreak: "break-word",
+                              whiteSpace: "normal",
+                            }}
+                          >
+                            {alunosAgendados.length === 0 ? (
+                              <span>Nenhum aluno agendado</span>
+                            ) : alunosAgendados.length > 1 ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">
+                                  {user?.role === "RESPONSAVEL"
+                                    ? `${alunosAgendados.length} filhos agendados`
+                                    : `${alunosAgendados.length} alunos agendados`}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModalAlunos(alunosAgendados);
+                                  }}
+                                  className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors mx-auto"
+                                >
+                                  Ver nomes
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setModalAlunos(alunosAgendados);
+                                }}
+                              >
+                                <span className="font-medium">
+                                  {alunosAgendados[0]}
+                                </span>
+                                <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
+                                  Opções
+                                </button>
+                              </div>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-800 font-medium mb-2">
+                            Horário disponível
+                          </span>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              {/* Modal de seleção de dia da semana para mobile */}
+              <Modal
+                isOpen={showWeekCalendarModal}
+                onClose={() => setShowWeekCalendarModal(false)}
+                title="Selecione o dia da semana"
+              >
+                <div className="grid grid-cols-4 gap-3">
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const date = addDays(startDate, i);
+                    const isSelected = i === currentDayIndex;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setCurrentDayIndex(i);
+                          setShowWeekCalendarModal(false);
+                        }}
+                        className={`p-6 rounded-lg text-center transition-colors ${
+                          isSelected
+                            ? "bg-primary text-white"
+                            : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                        }`}
+                      >
+                        <div className="text-[0.6rem] font-medium">
+                          {format(date, "EEE", { locale: ptBR }).substring(
+                            0,
+                            3
+                          )}
+                        </div>
+                        <div className="text-lg font-bold">
+                          {format(date, "dd")}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Modal>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Booking Modal */}
       <Modal
         isOpen={showBookingModal}
         onClose={handleModalClose}
-        title="Agendar Aula"
+        title={user?.role === "RESPONSAVEL" ? "Filhos Agendados" : "Alunos Agendados"}
         zIndex={1000}
       >
         {selectedSlot && (
@@ -1125,76 +1183,74 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 htmlFor="child-select"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Para quais filhos?
+                {user?.role === "RESPONSAVEL" ? 'Para qual filho?' : 'Para qual aluno?'}
               </label>
               <select
                 id="child-select"
                 name="child-select"
-                multiple
+                multiple={String(user?.role) === 'PROFESSORA' ? false : true}
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-h-[70px]"
-                value={selectedChildren}
+                value={String(user?.role) === 'PROFESSORA' ? selectedStudentId : selectedChildren}
                 onChange={(e) => {
-                  const options = Array.from(e.target.selectedOptions).map(
-                    (opt) => opt.value
-                  );
-                  setSelectedChildren(options);
+                  if(String(user?.role) === "PROFESSORA"){
+                    setSelectedStudentId(e.target.value)
+                  } else {
+                    const options = Array.from(e.target.selectedOptions).map(opt => opt.value)
+                    setSelectedChildren(options)
+                  }
                 }}
                 required
               >
                 {(() => {
-                  if (selectedSlot) {
-                    // Busca todos os filhos já agendados para aquele dia/horário
-                    const filhosJaAgendados: string[] = getAlunosAgendados(selectedSlot.date, selectedSlot.time).alunos.map(nome => {
-                      // Busca o id do filho pelo nome
-                      const found = children.find(child => child.name === nome);
-                      return found ? found.id : null;
-                    }).filter(Boolean) as string[];
-                    return children
-                      .filter((child) => !filhosJaAgendados.includes(child.id))
-                      .map((child) => (
-                        <option key={child.id} value={child.id}>
-                          {child.name}
-                        </option>
-                      ));
+                  const listaDePessoas: Child[] = user?.role === 'PROFESSORA' ? teacherRegisteredStudents : userAssociatedPeople;
+                  if (!selectedSlot || !listaDePessoas) return null;
+                  const alunosJaAgendados = getAlunosAgendados(selectedSlot.date, selectedSlot.time).alunos;
+                  const pessoasDisponiveis = listaDePessoas.filter((p: Child) => !alunosJaAgendados.includes(p.name));
+                  if (pessoasDisponiveis.length === 0) {
+                    return <option disabled>Nenhum Aluno/filho disponível</option>;
                   }
-                  return children.map((child) => (
-                    <option key={child.id} value={child.id}>
-                      {child.name}
-                    </option>
+                 
+                  const defaultOption = String(user?.role) === "PROFESSORA" ? [<option key="disabled" value="" disabled>Selecione um aluno</option>] : [];
+                  const options = pessoasDisponiveis.map((pessoa: Child) => (
+                    <option key={pessoa.id} value={pessoa.id}>{pessoa.name}</option>
                   ));
+                  return [...defaultOption, ...options];
                 })()}
               </select>
-              <span className="text-xs text-gray-500 block mt-1">
-                Segure <b>Ctrl</b> (Windows) ou <b>Command</b> (Mac) para
-                selecionar mais de um.
-              </span>
+              {/* MUDANÇA: A dica de seleção múltipla só aparece para o responsável */}
+              {String(user?.role) !== 'PROFESSORA' && (
+                <span className="text-xs text-gray-500 block mt-1">
+                  Segure <b>Ctrl</b> (Windows) ou <b>Command</b> (Mac) para selecionar mais de um.
+                </span>
+              )}
             </div>
 
-            <div className="mb-4">
-              <label
-                htmlFor="teacher-select"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Com qual professora?
-              </label>
-              <select
-                id="teacher-select"
-                name="teacher-select"
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                value={String(selectedTeacherId ?? "")}
-                onChange={handleTeacherChange}
-                required
-              >
-                <option value="" disabled>
-                  Selecione uma professora
-                </option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={String(teacher.id)}>
-                    {teacher.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* MUDANÇA: O seletor de professora só aparece se quem agenda NÃO é uma professora */}
+            {String(user?.role) !== 'PROFESSORA' && (
+              <div className="mb-4">
+                <label
+                  htmlFor="teacher-select"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Com qual professora?
+                </label>
+                <select
+                  id="teacher-select"
+                  name="teacher-select"
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                  value={String(selectedTeacherId ?? "")}
+                  onChange={handleTeacherChange}
+                  required
+                >
+                  <option value="" disabled>Selecione uma professora</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={String(teacher.id)}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleConfirmBooking}
@@ -1320,7 +1376,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                       </span>
                     </div>
                   </div>
-                  {user?.role === "RESPONSAVEL" && (
+                  {(user?.role === "RESPONSAVEL" || user?.role === "PROFESSORA") && (
                     <button
                       onClick={() => {
                         console.log('[CancelButton] Dados atuais:', {
@@ -1474,7 +1530,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
           </div>
         </Modal>
       )}
-    </div>
+    </>
   );
 };
 
