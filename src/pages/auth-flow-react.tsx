@@ -9,7 +9,7 @@ import { apiService } from "../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -42,6 +42,7 @@ const formatPhone = (value: string) => {
 };
 
 export default function AuthFlow() {
+  const [showPassword, setShowPassword] = useState(false);
   const { login: authLogin, user, isAuthenticated, loading } = useAuth();
   const [localUserTypeSelection, setLocalUserTypeSelection] =
     useState<LocalUserType>(null);
@@ -204,6 +205,10 @@ export default function AuthFlow() {
     return <p>Carregando autenticação...</p>;
   }
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-login-svg">
       <div className="max-w-md w-full">
@@ -279,6 +284,7 @@ export default function AuthFlow() {
             required
             type="email"
           />
+          <div className="relative">
           <Input
             label="Senha"
             id="password"
@@ -287,8 +293,19 @@ export default function AuthFlow() {
             value={registrationFormData.password}
             onChange={handleRegistrationChange}
             required
-            type="password"
-          />
+            type={showPassword ? 'text' : 'password'}
+            />
+          <button
+          type="button"
+          onClick={togglePasswordVisibility}
+          className="absolute top-1/2 right-3 pt-6 -translate-y-1/2">
+            {showPassword  ? (
+              <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
+            ) : (
+              <Eye className="h-5 w-5 text-gray-600"></Eye>
+            )}
+          </button>
+          </div>
           {registrationType === "PROFESSORA" && (
             <MaskedInput
               label="CNPJ"
@@ -323,6 +340,7 @@ export default function AuthFlow() {
 interface UserTypeSelectionProps {
   onSelect: (type: LocalUserType) => void;
 }
+
 
 function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
   return (
@@ -433,6 +451,12 @@ function LoginForm({
 }: LoginFormProps) {
   const isTeacher = userType === "PROFESSORA";
 
+  const [showPassword, setShowPassword] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center mb-8">
@@ -511,7 +535,7 @@ function LoginForm({
           <input
             id="password"
             name="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -519,6 +543,16 @@ function LoginForm({
             className="w-full px-3 py-2 border border-blue-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Digite sua senha"
           />
+          <button
+          type="button"
+          onClick={togglePasswordVisibility}
+          className="absolute top-1/2 mt-2 right-0 flex items-center pr-12 ">
+          {showPassword? (
+            <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
+          ): (
+            <Eye className="h-5 w-5 text-gray-600"></Eye>
+          )}
+          </button>
         </div>
 
         <div>
