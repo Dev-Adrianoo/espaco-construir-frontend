@@ -7,11 +7,12 @@ import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, AlignHorizontalSpaceAroundIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 import scheduleService from "../services/scheduleService";
+import { div } from "framer-motion/client";
 
 // Tempos disponíveis para agendamento
 const TIME_SLOTS = [
@@ -78,6 +79,12 @@ interface ScheduleWithStudents {
   scheduleIds: number[];  
 }
 
+interface AlunoAgendado {
+  id: string;
+  studentName: string;
+  scheduleId: string;
+}
+
 const SchedulePage: React.FC = (): JSX.Element => {
   const { user } = useAuth();
   const today = new Date();
@@ -134,7 +141,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   const [showWeekCalendarModal, setShowWeekCalendarModal] = useState(false);
 
   const [horariosComAlunos, setHorariosComAlunos] = useState<ScheduleWithStudents[]>([]);
-  const [modalAlunos, setModalAlunos] = useState<string[] | null>(null);
+  const [modalAlunos, setModalAlunos] = useState<AlunoAgendado[] | null>(null);
 
   const [showSlotActionModal, setShowSlotActionModal] = useState(false);
   const [slotActionData, setSlotActionData] = useState<{
@@ -158,6 +165,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     const [year, month, day] = dateStr.split("-");
     return `${day}/${month}/${year}`;
   };
+
+  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null) 
 
   const fetchSchedule = async () => {
     if (!user) return;
@@ -279,16 +288,29 @@ const SchedulePage: React.FC = (): JSX.Element => {
     return () => clearInterval(interval);
   }, [user]);
 
+
   // Função utilitária para pegar todos os alunos agendados em um slot
-  function getAlunosAgendados(date: string, time: string): { alunos: string[]; studentIds: string[] } {
-    // Se não tiver dados, retorna array vazio
-    if (!horariosComAlunos || !Array.isArray(horariosComAlunos)) {
-      return { alunos: [], studentIds: [] };
+  function getAlunosAgendados(date: string, time: string): AlunoAgendado[] {
+    
+    if(!horariosComAlunos || !Array.isArray(horariosComAlunos)){
+      return [];
+    }
+    
+ 
+    const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
+
+    if (!horario) {
+      return []
     }
 
-    // Procura o horário específico
-    const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
-    return horario ? { alunos: horario.alunos, studentIds: horario.studentIds.map(String) } : { alunos: [], studentIds: [] };
+    const alunosCompletos = horario.alunos.map((nome, index) => {
+      return {
+        studentName: nome,
+        id: horario.studentIds[index].toString(),
+        scheduleId: horario.scheduleIds[index].toString(),
+      }
+    })
+    return alunosCompletos
   }
 
   const handleSlotClick = (date: string, time: string) => {
@@ -297,7 +319,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
       return;
     }
 
-    const { alunos: alunosAgendados } = getAlunosAgendados(date, time);
+    // const { alunos: alunosAgendados } = getAlunosAgendados(date, time);
+
+    const alunosAgendados = getAlunosAgendados(date, time)
+
     console.log(`[ AVISO ] Slot clicado: ${date} ${time} | user.role: ${user.role}`);
     console.log(`[ AVISO ] Alunos agendados nesse slot:`, alunosAgendados);
 
@@ -384,98 +409,32 @@ const SchedulePage: React.FC = (): JSX.Element => {
   };
 
   // Função para verificar filhos disponíveis para agendamento
-  const getFilhosDisponiveis = (horario: string) => {
+  const getFilhosDisponiveis = () => {
     if (!modalAlunos || !userAssociatedPeople) return [];
-    return userAssociatedPeople.filter(child => !modalAlunos.includes(child.name));
+    return !modalAlunos.some(alunoAgendado => alunoAgendado.studentName === child.name);
   };
 
-  const handleCancelSchedule = async (
-    date: string,
-    time: string,
-    studentName: string
-  ) => {
+  const handleCancelSchedule = async (scheduleIdToCancel: string) => {
     try {
-      console.log('[handleCancelSchedule] Iniciando cancelamento para:', { date, time, studentName });
+      console.log('[handleCancelSchedule] Iniciando cancelamento para:', scheduleIdToCancel);
       setIsCanceling(true);
-      
-      
-      // Busca o ID do aluno pelo nome
-      const student = userAssociatedPeople.find(child => child.name === studentName);
-      if (!student) {
-        console.error('[handleCancelSchedule] Aluno não encontrado:', studentName);
-        toast.error('Aluno não encontrado');
-        return;
-      }
-      console.log('[handleCancelSchedule] Aluno encontrado:', student);
 
-      // Busca o horário específico nos horários com alunos
-      const horarioComAluno = horariosComAlunos.find(h => 
-        h.dia === date && 
-        h.hora === time && 
-        h.alunos.includes(studentName)
-      );
 
-      if (!horarioComAluno) {
-        console.error('[handleCancelSchedule] Horário não encontrado para:', { date, time, studentName });
-        toast.error('Horário não encontrado');
-        return;
-      }
+     await scheduleService.cancelSchedule(scheduleIdToCancel)
 
-      // Pega o ID do agendamento
-      const studentIndex = horarioComAluno.alunos.indexOf(studentName);
-      const scheduleId = Number(horarioComAluno.scheduleIds[studentIndex]);
-
-      if (!scheduleId || isNaN(scheduleId)) {
-        console.error('[handleCancelSchedule] ID do agendamento não encontrado ou inválido:', scheduleId);
-        toast.error('ID do agendamento não encontrado ou inválido');
-        return;
-      }
-
-      console.log('[handleCancelSchedule] Cancelando agendamento:', scheduleId);
-      
-      // Cancela o agendamento
-      await scheduleService.cancelSchedule(String(scheduleId));
-      console.log('[handleCancelSchedule] Agendamento cancelado com sucesso');
-      
-      // Atualiza a interface imediatamente
-      setHorariosComAlunos(prevHorarios => {
-        const novosHorarios = prevHorarios.map(h => {
-          if (h.dia === date && h.hora === time) {
-            return {
-              ...h,
-              alunos: h.alunos.filter(a => a !== studentName),
-              studentIds: h.studentIds.filter((_, idx) => idx !== studentIndex)
-            };
-          }
-          return h;
-        }).filter(h => h.alunos.length > 0);
-        
-        return novosHorarios;
-      });
-      
-      // Atualiza a lista do modal
-      if (modalAlunos) {
-        const updatedAlunos = modalAlunos.filter(a => a !== studentName);
-        if (updatedAlunos.length === 0) {
-          setModalAlunos(null);
-        } else {
-          setModalAlunos(updatedAlunos);
-        }
-      }
-
-      // Fecha os modais
-      setShowCancelConfirmModal({ show: false });
-      
-      toast.success(`Aula de ${studentName} cancelada com sucesso!`);
-      
-      // Atualiza os dados do backend
+     console.log('[handleCancelSchedule] Agendamento cancelado com sucesso no backend');
+     toast.success(`Aula cancelada com sucesso!`);
+ 
       await fetchSchedule();
-    } catch (error: any) {
-      console.error('[handleCancelSchedule] Erro ao cancelar:', error);
-      toast.error(error.message || 'Erro ao cancelar agendamento. Tente novamente.');
+
+      setModalAlunos(null)
+      setShowCancelConfirmModal({show: false})
+
+    } catch (error: any){
+      console.error("[handleCancelSchedule] Erro ao cancelar: ", error)
+      toast.error(error.message || 'Erro ao cancelar agendamento.')
     } finally {
-      setIsCanceling(false);
-      toast.dismiss();
+      setIsCanceling(false)
     }
   };
 
@@ -615,16 +574,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   ))}
                 </div>
                 {/* 7 colunas para os dias */}
+
                 {Array.from({ length: 7 }).map((_, i) => {
                   const date = addDays(startDate, i);
                   const dateStr = format(date, "yyyy-MM-dd");
                   return (
                     <div key={i} className="flex flex-col">
                       {TIME_SLOTS.map((time) => {
-                        const { alunos: alunosAgendados } = getAlunosAgendados(
-                          dateStr,
-                          time
-                        );
+                       const alunosAgendados = getAlunosAgendados(dateStr, time)
                         const isBooked = alunosAgendados.length > 0;
                         return (
                           <div
@@ -655,6 +612,11 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                   wordBreak: "break-word",
                                   whiteSpace: "normal",
                                 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setModalAlunos(alunosAgendados)
+                    
+                                }}
                               >
                                 {alunosAgendados.length === 0 ? (
                                   <span>Nenhum aluno agendado</span>
@@ -675,7 +637,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                       Ver nomes
                                     </button>
                                   </div>
-                                ) : (
+                                ) : ( 
                                   <div
                                     className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
                                     onClick={(e) => {
@@ -684,10 +646,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                     }}
                                   >
                                     <span className="font-medium">
-                                      {alunosAgendados[0]}
+                                      {alunosAgendados[0].studentName}
                                     </span>
                                     <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
-                                      Opções
+                                      (Opções)
                                     </button>
                                   </div>
                                 )}
@@ -738,10 +700,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   const date = addDays(startDate, currentDayIndex);
                   const dateStr = format(date, "yyyy-MM-dd");
                   return TIME_SLOTS.map((time) => {
-                    const { alunos: alunosAgendados } = getAlunosAgendados(
-                      dateStr,
-                      time
-                    );
+                    const alunosAgendados = getAlunosAgendados(dateStr, time)
                     const isBooked = alunosAgendados.length > 0;
                     return (
                       <div
@@ -799,7 +758,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                 }}
                               >
                                 <span className="font-medium">
-                                  {alunosAgendados[0]}
+                                  {alunosAgendados[0].studentName}
                                 </span>
                                 <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
                                   Opções
@@ -909,10 +868,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   return (
                     <div key={i} className="flex flex-col">
                       {TIME_SLOTS.map((time) => {
-                        const { alunos: alunosAgendados } = getAlunosAgendados(
-                          dateStr,
-                          time
-                        );
+                          const alunosAgendados = getAlunosAgendados(dateStr, time)
                         const isBooked = alunosAgendados.length > 0;
                         return (
                           <div
@@ -972,7 +928,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                     }}
                                   >
                                     <span className="font-medium">
-                                      {alunosAgendados[0]}
+                                      {alunosAgendados[0].studentName}
                                     </span>
                                     <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
                                       Opções
@@ -1027,10 +983,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   const date = addDays(startDate, currentDayIndex);
                   const dateStr = format(date, "yyyy-MM-dd");
                   return TIME_SLOTS.map((time) => {
-                    const { alunos: alunosAgendados } = getAlunosAgendados(
-                      dateStr,
-                      time
-                    );
+                    const alunosAgendados = getAlunosAgendados(dateStr, time)
                     const isBooked = alunosAgendados.length > 0;
                     return (
                       <div
@@ -1088,7 +1041,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                 }}
                               >
                                 <span className="font-medium">
-                                  {alunosAgendados[0]}
+                                  {alunosAgendados[0].studentName}
                                 </span>
                                 <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
                                   Opções
@@ -1204,8 +1157,13 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 {(() => {
                   const listaDePessoas: Child[] = user?.role === 'PROFESSORA' ? teacherRegisteredStudents : userAssociatedPeople;
                   if (!selectedSlot || !listaDePessoas) return null;
-                  const alunosJaAgendados = getAlunosAgendados(selectedSlot.date, selectedSlot.time).alunos;
-                  const pessoasDisponiveis = listaDePessoas.filter((p: Child) => !alunosJaAgendados.includes(p.name));
+
+                  const alunosJaAgendados = getAlunosAgendados(selectedSlot.date, selectedSlot.time)
+
+                  const pessoasDisponiveis = listaDePessoas.filter((p: Child) => 
+                    !alunosJaAgendados.some(alunoAgendado => alunoAgendado.studentName === p.name)
+                  )
+
                   if (pessoasDisponiveis.length === 0) {
                     return <option disabled>Nenhum Aluno/filho disponível</option>;
                   }
@@ -1306,11 +1264,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                       studentName: showCancelConfirmModal.studentName
                     });
 
-                      await handleCancelSchedule(
-                        showCancelConfirmModal.date,
-                        showCancelConfirmModal.time,
-                        showCancelConfirmModal.studentName
-                      );
+                      await handleCancelSchedule(String(confirmingCancelId));
 
                     // Fecha o modal apenas se o cancelamento foi bem sucedido
                       setShowCancelConfirmModal({ show: false });
@@ -1367,10 +1321,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
                         background: 'linear-gradient(135deg, #FF7F6B 0%, #FF9B8D 100%)'
                       }}
                     >
-                      {aluno.split(" ").map(word => word[0]).join("").toUpperCase()}
+                      {aluno.studentName.split(" ").map((word: string) => word[0]).join("").toUpperCase()}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-800">{aluno}</span>
+                      <span className="font-medium text-gray-800">{aluno.studentName}</span>
                       <span className="text-sm text-gray-500">
                         {selectedSlot && `${formatDate(selectedSlot.date)} - ${selectedSlot.time}`}
                       </span>
@@ -1379,45 +1333,61 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   {(user?.role === "RESPONSAVEL" || user?.role === "PROFESSORA") && (
                     <button
                       onClick={() => {
-                        console.log('[CancelButton] Dados atuais:', {
-                          aluno,
-                          horariosComAlunos,
-                          selectedSlot
-                        });
+                        console.log('Preparando para cancelar o agendamento com ID:', aluno.scheduleId);
 
-                        // Encontra o horário do aluno para o dia atual
-                        const horarioComAluno = horariosComAlunos.find(h => {
-                          const match = h.alunos.includes(aluno);
-                          console.log('[CancelButton] Verificando horário:', {
-                            horario: h,
-                            aluno,
-                            match
-                          });
-                          return match;
-                        });
-                        
+                        const horarioComAluno = horariosComAlunos.find(h => h.scheduleIds.includes(Number(aluno.scheduleId)))
+
                         if (horarioComAluno) {
-               console.log('[CancelButton] Horário encontrado:', horarioComAluno);
-                    
-                          // Atualiza a interface imediatamente
-                          setModalAlunos(prev => prev ? prev.filter(a => a !== aluno) : null);
-                          
-                        setShowCancelConfirmModal({
-                          show: true,
+                          setShowCancelConfirmModal({
+                            show: true,
                             date: horarioComAluno.dia,
                             time: horarioComAluno.hora,
-                          studentName: aluno
-                        });
-                        } else {
-                          console.error('[CancelButton] Horário não encontrado para:', aluno);
-                          toast.error('Não foi possível encontrar o horário da aula');
+                            studentName: aluno.studentName
+                          })
+                          setModalAlunos(null);
+                        } else{
+                          toast.error("Não foi possivel encontrar horários da aula");
                         }
+
+                        setConfirmingCancelId(aluno.scheduleId);
+
+                        setShowSlotActionModal(true);
+
+
+                        // Encontra o horário do aluno para o dia atual
+                        // const horarioComAluno = horariosComAlunos.find(h => {
+                        //   const match = h.alunos.includes(aluno.id);
+                        //   console.log('[CancelButton] Verificando horário:', {
+                        //     horario: h,
+                        //     aluno,
+                        //     match
+                        //   });
+                        //   return match;
+                        // });
+                        
+                        // if (horarioComAluno) {
+                        // console.log('[CancelButton] Horário encontrado:', horarioComAluno);
+                    
+                        //   // Atualiza a interface imediatamente
+                        //   setModalAlunos(prev => prev ? prev.filter(a => a !== aluno) : null);
+                          
+                        // setShowCancelConfirmModal({
+                        //   show: true,
+                        //     date: horarioComAluno.dia,
+                        //     time: horarioComAluno.hora,
+                        //   studentName: aluno.studentName
+                        // });
+                        // } else {
+                        //   console.error('[CancelButton] Horário não encontrado para:', aluno);
+                        //   toast.error('Não foi possível encontrar o horário da aula');
+                        // }
+                       
                       }}
                       className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 text-sm"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      {/* <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      </svg> */}
                       Cancelar
                     </button>
                   )}
@@ -1466,26 +1436,23 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
                 disabled={isCanceling}
                 onClick={async () => {
+                  if (!confirmingCancelId) return;
+
                   try {
                     setIsCanceling(true);
-                    toast.loading('Cancelando agendamento...');
-                    
-                    await handleCancelSchedule(
-                    slotActionData.date,
-                    slotActionData.time,
-                    slotActionData.childName
-                  );
-                    
-                  setShowSlotActionModal(false);
-                    toast.success(`Aula de ${slotActionData.childName} cancelada com sucesso!`);
+                    toast.loading('Cancelando agendamento...');   
+                    await handleCancelSchedule(confirmingCancelId);                
+                  // setShowSlotActionModal(false);
+                  //   toast.success(`Aula de ${slotActionData.childName} cancelada com sucesso!`);
                   } catch (error) {
                     console.error('[SlotActionModal] Erro ao cancelar:', error);
                     toast.error('Erro ao cancelar agendamento. Tente novamente.');
                   } finally {
                     setIsCanceling(false);
-                    toast.dismiss();
+                    setConfirmingCancelId(null)
                   }
                 }}
+               
               >
                 {isCanceling ? (
                   <div className="flex items-center">
