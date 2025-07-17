@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, parseISO } from "date-fns";
+import { format, addDays, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
@@ -7,12 +7,11 @@ import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { ChevronLeft, ChevronRight, Calendar, AlignHorizontalSpaceAroundIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 import scheduleService from "../services/scheduleService";
-import { div } from "framer-motion/client";
 
 // Tempos disponíveis para agendamento
 const TIME_SLOTS = [
