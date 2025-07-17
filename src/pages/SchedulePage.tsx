@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ja, ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
@@ -409,8 +409,15 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   // Função para verificar filhos disponíveis para agendamento
   const getFilhosDisponiveis = () => {
+
     if (!modalAlunos || !userAssociatedPeople) return [];
-    return !modalAlunos.some(alunoAgendado => alunoAgendado.studentName === child.name);
+
+    return !modalAlunos.filter(child => {
+
+      const JaEstaAgendado = modalAlunos.some(alunoAgendado => alunoAgendado.studentName === child.studentName)
+
+      return !JaEstaAgendado
+    });
   };
 
   const handleCancelSchedule = async (scheduleIdToCancel: string) => {
@@ -760,7 +767,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                   {alunosAgendados[0].studentName}
                                 </span>
                                 <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
-                                  Opções
+                                  (Opções)
                                 </button>
                               </div>
                             )}
@@ -930,7 +937,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                       {alunosAgendados[0].studentName}
                                     </span>
                                     <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
-                                      Opções
+                                      (Opções)
                                     </button>
                                   </div>
                                 )}
@@ -1043,7 +1050,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                   {alunosAgendados[0].studentName}
                                 </span>
                                 <button className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1.5 rounded transition-colors w-full sm:w-auto">
-                                  Opções
+                                  (Opções)
                                 </button>
                               </div>
                             )}
