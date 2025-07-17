@@ -389,7 +389,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       setIsDeleteModalOpen(false);
       setChildToDelete(null);
       setSubmissionStatus("success");
-      setSubmissionMessage("Aluno removido com sucesso!");
+      // setSubmissionMessage("Aluno removido com sucesso!");
+      toast.success("Aluno removido com sucesso!")
       
     } catch (err: any) {
       console.error('Erro ao excluir aluno:', err);
@@ -445,9 +446,10 @@ const handleSubmit = async (e: React.FormEvent) => {
             </p>
 
             {submissionStatus === "success" && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-green-700">{submissionMessage}</p>
-              </div>
+              // <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              //   <p className="text-green-700">{submissionMessage}</p>
+              // </div>
+              <span></span>
             )}
 
             {submissionStatus === "error" && (

@@ -10,6 +10,7 @@ import { AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import toast from "react-hot-toast";
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -258,10 +259,10 @@ export default function AuthFlow() {
           </div>
         )}
         {registrationSuccess && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">
-              Cadastro realizado com sucesso!
-            </p>
+           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+           <p className="text-sm text-green-600">
+              Cadastro realizado com sucesso! 
+           </p>
           </div>
         )}
         <form onSubmit={handleRegistrationSubmit} className="space-y-6">
