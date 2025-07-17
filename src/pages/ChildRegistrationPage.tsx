@@ -9,9 +9,11 @@ import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { date, string, z } from 'zod';
 import studentService, { Student, CreateStudentData } from "../services/studentService";
 import MaskedInput from "../components/MaskedInput";
 import { UserPlus, CalendarDays, GraduationCap, BookOpen, AlertCircle, Brain } from 'lucide-react';
+import toast from "react-hot-toast";
 
 interface Guardian {
   id: number;
@@ -59,6 +61,7 @@ const ChildRegistrationPage: React.FC = () => {
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [loadingGuardians, setLoadingGuardians] = useState(false);
   const [guardiansError, setGuardiansError] = useState<string | null>(null);
+  const [erros, setErros] = useState<{ [key: string]: string }>({});
 
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
@@ -242,11 +245,51 @@ const ChildRegistrationPage: React.FC = () => {
     setEditingChild(null);
   };
 
+  const alunoSchema = z.object({
+    name: z.string().min(3, {message: "O nome deve ter no mínimo 3 caracteres."}),
+  
+    birthDate: z.string().refine((data) => {
+      const regex = /^\d{2}\/\d{2}\/\d{4}$/;
+      if (!regex.test(data)) return false;
+  
+      const [dia, mes, ano] = data.split('/').map(Number);
+      const dataObj = new Date(ano, mes -1, dia);
+  
+      return dataObj.getFullYear() === ano && dataObj.getMonth() === mes -1 && dataObj.getDate() === dia && dataObj < new Date();
+    }, {message: 'Data de nascimento inválida ou futura.'}),
+  
+    grade: z.string().nonempty({message: "A série é obrigatória."}),
+    difficulties: z.string().optional(),
+    condition: z.string().optional(),
+  
+  })
 
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setSubmissionStatus("loading");
+
+  try{
+    alunoSchema.parse(formData);
+
+  }catch (err) {
+    if (err instanceof z.ZodError) {
+      const fieldErrors: { [key: string]: string } = {};
+
+      for (const issue of err.issues) {
+
+        if (issue.path && typeof issue.path[0] === 'string') {
+          fieldErrors[issue.path[0]] = issue.message;
+
+        }
+      }
+      setErros(fieldErrors);
+
+      toast.error("Por favor, corrija os erros indicados no formulário.");
+    }
+    setSubmissionStatus("idle");
+    return
+  }
 
   if (!user?.id) {
     setSubmissionMessage("Sua sessão expirou. Por favor, faça login novamente.");
@@ -273,11 +316,13 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (editingChild) {
       console.log('[handleSubmit] Modo de edição. Enviando:', studentData);
       await studentService.updateStudent(editingChild.id, studentData);
-      setSubmissionMessage("Aluno atualizado com sucesso!");
+      // setSubmissionMessage("Aluno atualizado com sucesso!");
+      toast.success("Aluno atualizado com sucesso!");
     } else {
       console.log('[handleSubmit] Modo de criação. Enviando:', studentData);
       await studentService.createStudent(studentData);
-      setSubmissionMessage("Aluno cadastrado com sucesso!");
+      // setSubmissionMessage("Aluno cadastrado com sucesso!");
+      toast.success("Aluno cadastrado com sucesso!")
     }
     
     setSubmissionStatus("success");
@@ -412,7 +457,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <div className="flex-col items-center gap-2  text-gray-700 mb-2">
                 <UserPlus className="w-5 h-5" />
                 <Input
                   label="Nome do Aluno"
@@ -423,10 +468,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                   required
                   placeholder="Digite o nome completo do aluno"
                   className="w-full"
-                />
+                  error={erros.name}
+                  />
+                  {/* {erros.name && <p className="text-[#B91C1C] border border-[#B91C1C] p-2 text-xs rounded-md">{erros.name}</p>} */}
               </div>
 
-              <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <div className="flex-col items-center gap-2 text-gray-700 mb-2">
                 <CalendarDays className="w-5 h-5" />
                 <MaskedInput
                   label="Data de Nascimento"
@@ -439,10 +486,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                   placeholder="DD/MM/AAAA"
                   type="date"
                   className="w-full"
-                />
+                  error={erros.birthDate}
+                  />
+                  {/* {erros.birthDate && <p className="text-[#B91C1C] border border-[#B91C1C] text-xs">{erros.birthDate}</p>} */}
               </div>
 
-              <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
                 <GraduationCap className="w-5 h-5" />
                 <Select
                   label="Série"
@@ -454,10 +503,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                   required
                   placeholder="Selecione a série do aluno"
                   className="w-full"
+                  error={erros.grade}
                 />
               </div>
 
-              <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
                 <AlertCircle className="w-5 h-5" />
                 <Textarea
                   label="Condição Específica (opcional)"
@@ -470,7 +520,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 />
               </div>
 
-              <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
                 <Brain className="w-5 h-5" />
                 <Textarea
                   label="Dificuldades Específicas (opcional)"
@@ -543,9 +593,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div>
                         <h3 className="font-semibold text-gray-900">{child.name}</h3>
-                        <p className="text-sm text-gray-600">Série: {child.grade}</p>
+                        <p className="text-sm text-gray-600"><strong>Série: </strong>{child.grade}</p>
                         <p className="text-sm text-gray-600">
-                          Data de Nascimento: {child.birthDate}
+                          <strong>Data de Nascimento: </strong>{child.birthDate}
                         </p>
                         {child.condition && (
                           <p className="text-sm text-gray-600 mt-1">
@@ -562,7 +612,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         <Button
                           variant="secondary"
                           onClick={() => handleEdit(child)}
-                          className="flex-1 sm:flex-none"
+                          className="flex-1 border border-black sm:flex-none"
                         >
                           Editar
                         </Button>

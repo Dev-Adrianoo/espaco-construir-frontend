@@ -49,7 +49,7 @@ const Input: React.FC<InputProps> = ({
         id={id}
         name={name}
         className={`w-full px-3 py-2 border ${
-          error ? "border-red-500" : "border-gray-300"
+          error ? "border-[#B91C1C]" : "border-gray-300"
         } 
                    rounded-lg shadow-sm focus:outline-none focus:ring-2 
                    focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200`}
