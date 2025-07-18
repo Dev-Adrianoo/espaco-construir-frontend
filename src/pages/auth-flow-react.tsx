@@ -5,12 +5,12 @@ import { GraduationCap, User as UserIcon } from "lucide-react";
 import Modal from "../components/Modal";
 import Input from "../components/Input";
 import Button from "../components/Button";
-import { apiService } from "../services/api";
-import { AxiosError } from "axios";
+import api, { apiService } from "../services/api";
+import { Axios, AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
-import toast from "react-hot-toast";
+
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -43,6 +43,8 @@ const formatPhone = (value: string) => {
 };
 
 export default function AuthFlow() {
+  const [recoveryEmail, setRecoveryEmail] = useState<string>('')
+  const [recoveryMessage, setRecoveryMessage] = useState({ type: '', text: '' })
   const [showPassword, setShowPassword] = useState(false);
   const { login: authLogin, user, isAuthenticated, loading } = useAuth();
   const [localUserTypeSelection, setLocalUserTypeSelection] =
@@ -51,6 +53,7 @@ export default function AuthFlow() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState<LocalUserType>(null);
   const [registrationFormData, setRegistrationFormData] = useState({
@@ -210,6 +213,37 @@ export default function AuthFlow() {
     setShowPassword(!showPassword)
   }
 
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setRecoveryMessage({type: '', text: ''})
+
+    try {
+      console.log(`Enviando link de recuperação para : ${recoveryEmail}`);
+      await api.post('/auth/forgot-password', {
+        email: recoveryEmail,
+
+      });
+
+      setRecoveryMessage({
+        type: 'success', 
+        text: 'um link foi enviado para seu e-mail.'
+      });
+
+      setRecoveryEmail('')
+    }catch (err){
+      const error = err as AxiosError<{ message: string}>
+      console.error("Erro ao enviar link.", error)
+
+      const errorMessage = error.response?.data?.message || 'Ocorreu um erro. Tente novamente.'
+
+      setRecoveryMessage({type: 'error', text: errorMessage})
+    }finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-login-svg">
       <div className="max-w-md w-full">
@@ -240,11 +274,56 @@ export default function AuthFlow() {
                 onSubmit={handleSubmit}
                 error={error}
                 onRegisterClick={openRegistrationModal}
+                onForgotPasswordClick={() => setIsModalOpen(true)}
               />
             )}
           </motion.div>
         </motion.div>
       </div>
+
+
+      <Modal isOpen={isModalOpen}
+       onClose={() => {
+        setIsModalOpen(false)
+        setRecoveryEmail('');
+        setRecoveryMessage({type: '', text: ''})
+      }}
+        title="Esqueci senha"
+        >
+          <div className="p-3">
+            <p className="text-sm text-black mb-3">
+            Digite seu e-mail abaixo e enviaremos um link para você criar uma nova senha.
+            </p>
+            <form onSubmit={handleForgotPasswordSubmit}>
+              <Input
+              label="E-mail"
+              id="recovery-email"
+              name="recovery-email"
+              type="email"
+              placeholder="Digite seu e-mail"
+              value={recoveryEmail}
+              onChange={(e) => setRecoveryEmail(e.target.value)}
+              required
+              />
+              
+              <div className="mt-4">
+                <button type="submit" className="w-full bg-[#1D4ED8] text-white p-3 rounded-md" disabled={isLoading}>
+                  {isLoading ? "Enviando...": "Recuperar Senha"}
+                </button>
+              </div>
+
+            </form>
+
+            {recoveryMessage.text && (
+              <p className={`mt-4 text-center text-sm ${
+                recoveryMessage.type === 'success' ? 'text-green-600': 'text-red-600'
+              }`}>
+                {recoveryMessage.text}
+              </p>
+            )}
+          </div>
+        </Modal>
+
 
       <Modal
         isOpen={isRegistrationModalOpen}
@@ -437,6 +516,7 @@ interface LoginFormProps {
   onSubmit: (e: React.FormEvent) => void;
   error?: string;
   onRegisterClick: (type: LocalUserType) => void;
+  onForgotPasswordClick: () => void;
 }
 
 function LoginForm({
@@ -449,6 +529,7 @@ function LoginForm({
   onSubmit,
   error,
   onRegisterClick,
+  onForgotPasswordClick,
 }: LoginFormProps) {
   const isTeacher = userType === "PROFESSORA";
 
@@ -567,12 +648,13 @@ function LoginForm({
       </form>
 
       <div className="mt-6 text-center">
-        <a
-          href="#"
+        <button
+          type="button"
+          onClick={onForgotPasswordClick}
           className="text-sm font-medium text-blue-500 hover:text-blue-700"
         >
           Esqueci minha senha
-        </a>
+        </button>
         {userType === "PROFESSORA" && (
           <div className="mt-4">
             <button
