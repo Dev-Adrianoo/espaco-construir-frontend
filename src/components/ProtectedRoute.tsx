@@ -14,6 +14,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
 
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -23,7 +24,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 

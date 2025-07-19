@@ -68,9 +68,6 @@ const RegisterTeacherPage: React.FC = () => {
     }
   };
 
-  // ADICIONAR TRY CATCH
-  // FEEDBACK PARA O USUARIO DEPOIS DO CADASTRO
-  // VALIDACAO DOS DADOS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

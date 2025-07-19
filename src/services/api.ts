@@ -17,6 +17,11 @@ export interface ScheduleDTO {
   condition: string;
 }
 
+export interface ResetPasswordData {
+  token: string;
+  newPassword: string;
+}
+
 export interface TeacherStudent {
   id: number;
   name: string;
@@ -149,6 +154,9 @@ export const apiService = {
   verifyToken: (token: string) =>
     api.post('/auth/verify', { token }),
 
+  resetPassword: (data: ResetPasswordData) => {
+    return api.post('/auth/reset-password', data);
+  },
 
   registerResponsible: (data: {
     name: string;

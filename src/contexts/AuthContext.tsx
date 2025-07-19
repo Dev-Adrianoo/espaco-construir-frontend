@@ -36,15 +36,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (window.location.pathname.startsWith('/reset-password')) {
+        setLoading(false);
+        return;
+      }
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
 
       if (storedToken && storedUser) {
         try {
-          // Tenta verificar o token
+      
           await apiService.verifyToken(storedToken);
           const parsedUser = JSON.parse(storedUser) as User;
-          // Atualiza os dados do usuário
+        
+
           try {
             let fetchedUser: User | null = null;
             if (parsedUser.role === "PROFESSORA") {
@@ -60,13 +65,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               localStorage.setItem("user", JSON.stringify(fetchedUser));
             } else {
               throw new Error("Could not fetch current user data");
+
             }
           } catch (error) {
             console.error("Error fetching current user data:", error);
             throw error;
           }
         } catch (error) {
-          // Se o token expirou, tenta renovar com o refresh token
           if (storedToken) {
             try {
               const response = await apiService.refreshToken(storedToken);
