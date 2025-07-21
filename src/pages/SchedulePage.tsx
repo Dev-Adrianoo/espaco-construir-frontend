@@ -520,8 +520,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   if (user?.role === "RESPONSAVEL" && teachers.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
-        <h2 className="text-2xl font-bold mb-2">
+      <div className="flex-col h-max items-center justify-center max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-md p-8 text-center">
+        <h2 className="text-2xl text-center items-center justify-center font-bold mb-2">
           Nenhuma professora disponível
         </h2>
         <p className="text-gray-600 mb-4">
