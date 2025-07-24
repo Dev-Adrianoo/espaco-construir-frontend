@@ -285,7 +285,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
       setErros(fieldErrors);
 
-      toast.error("Por favor, corrija os erros indicados no formulário.");
+      toast.error("Por favor, corrija os erros indicados no formulário.", {
+        icon: '⚠️'
+      });
     }
     setSubmissionStatus("idle");
     return
@@ -317,12 +319,16 @@ const handleSubmit = async (e: React.FormEvent) => {
       console.log('[handleSubmit] Modo de edição. Enviando:', studentData);
       await studentService.updateStudent(editingChild.id, studentData);
       // setSubmissionMessage("Aluno atualizado com sucesso!");
-      toast.success("Aluno atualizado com sucesso!");
+      toast.success("Aluno atualizado com sucesso!", {
+        icon: '📝'
+      });
     } else {
       console.log('[handleSubmit] Modo de criação. Enviando:', studentData);
       await studentService.createStudent(studentData);
       // setSubmissionMessage("Aluno cadastrado com sucesso!");
-      toast.success("Aluno cadastrado com sucesso!")
+      toast.success("Aluno cadastrado com sucesso!", {
+        icon: '🧑‍🎓'
+      })
     }
     
     setSubmissionStatus("success");
@@ -363,6 +369,11 @@ const handleSubmit = async (e: React.FormEvent) => {
       guardianId: child.guardianId
     });
     setEditingChild(child);
+
+    toast.success("Modo de edição ativado!", {
+      icon: '✏️',
+      duration: 4000
+    });
   };
 
   const handleDelete = async (child: Student) => {
@@ -390,7 +401,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       setChildToDelete(null);
       setSubmissionStatus("success");
       // setSubmissionMessage("Aluno removido com sucesso!");
-      toast.success("Aluno removido com sucesso!")
+      toast.success("Aluno removido com sucesso!", {
+        icon: '✅'
+      })
       
     } catch (err: any) {
       console.error('Erro ao excluir aluno:', err);
@@ -459,7 +472,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex-col items-center gap-2  text-gray-700 mb-2">
+              <div className="flex items-center gap-2  text-gray-700 mb-2">
                 <UserPlus className="w-5 h-5" />
                 <Input
                   label="Nome do Aluno"
@@ -475,7 +488,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* {erros.name && <p className="text-[#B91C1C] border border-[#B91C1C] p-2 text-xs rounded-md">{erros.name}</p>} */}
               </div>
 
-              <div className="flex-col items-center gap-2 text-gray-700 mb-2">
+              <div className="flex items-center gap-2 text-gray-700 mb-2">
                 <CalendarDays className="w-5 h-5" />
                 <MaskedInput
                   label="Data de Nascimento"
@@ -493,7 +506,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* {erros.birthDate && <p className="text-[#B91C1C] border border-[#B91C1C] text-xs">{erros.birthDate}</p>} */}
               </div>
 
-              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
+              <div className="flex items-center gap-2 text-gray-700 mb-2">
                 <GraduationCap className="w-5 h-5" />
                 <Select
                   label="Série"
@@ -509,7 +522,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 />
               </div>
 
-              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
+              <div className="flex items-center gap-2 text-gray-700 mb-2">
                 <AlertCircle className="w-5 h-5" />
                 <Textarea
                   label="Condição Específica (opcional)"
@@ -522,7 +535,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 />
               </div>
 
-              <div className="flex-row items-center gap-2 text-gray-700 mb-2">
+              <div className="flex items-center gap-2 text-gray-700 mb-2">
                 <Brain className="w-5 h-5" />
                 <Textarea
                   label="Dificuldades Específicas (opcional)"

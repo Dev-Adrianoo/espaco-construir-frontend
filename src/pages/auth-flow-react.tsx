@@ -628,7 +628,7 @@ function LoginForm({
           <button
           type="button"
           onClick={togglePasswordVisibility}
-          className="absolute top-1/2 mt-2 right-0 flex items-center pr-12 ">
+          className="absolute top-1/2 mt-2 right-0 flex items-center pr-11">
           {showPassword? (
             <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
           ): (

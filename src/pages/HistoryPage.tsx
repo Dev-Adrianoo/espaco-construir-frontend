@@ -300,9 +300,8 @@ const HistoryPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
-          
-          <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 m-3">Histórico de Aulas</h1>
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6 mt-5">
             <p className="text-gray-600 mb-6">
               Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
             </p>
@@ -375,20 +374,18 @@ const HistoryPage: React.FC = () => {
                             <h3 className="text-lg font-medium text-gray-900">
                               {childName}
                             </h3>
-                            <p className="text-sm text-gray-">
+                            <p className="text-sm  text-gray-700 font-semibold">
                               Professor(a): {teacherName}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
-                            <span>{formatDate(record.createdAt)}</span>
-                            <span>•</span>
-                            <span>{record.comment}</span>
+                            <span>• {formatDate(record.createdAt)}</span>             
                           </div>
                         </div>
                         
                         <div className="bg-white rounded p-3 border border-gray-100">
                           <h4 className="font-medium text-gray-700 mb-2">Anotações:</h4>
-                          <p className="text-gray-600 whitespace-pre-wrap">
+                          <p className="text-gray-600 whitespace-pre-wrap break-words">
                             {record.comment}
                           </p>
                         </div>
@@ -405,11 +402,12 @@ const HistoryPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
-        
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <hr className="w-[40%] bg-black h-[3px] mb-3" />
+        <hr className="w-[20%] bg-black h-[3px]"/>
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6 mt-5">
           <p className="text-gray-600 mb-6">
             Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
           </p>
@@ -475,27 +473,25 @@ const HistoryPage: React.FC = () => {
                   return (
                     <div
                       key={record.id}
-                      className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                      className="bg-gray-200 rounded-lg p-5 border border-gray-300"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
                         <div className="mb-2 sm:mb-0">
-                          <h3 className="text-lg font-medium text-gray-900 font-bold">
+                          <h3 className="text-lg text-gray-900 font-bold">
                             {childName}
                           </h3>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-700 font-semibold">
                             Professor(a): {teacherName}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{formatDate(record.createdAt)}</span>
-                          <span>•</span>
-                          <span>{record.comment}</span>
+                          <span>• {formatDate(record.createdAt)}</span>
                         </div>
                       </div>
                       
-                      <div className="bg-white rounded p-3 border border-gray-100">
+                      <div className="bg-[#FDFCFB] rounded p-3 border border-gray-100">
                         <h4 className="font-bold text-gray-700 mb-2">Anotações:</h4>
-                        <p className="text-gray-600 whitespace-pre-wrap">
+                        <p className="text-gray-600 whitespace-pre-wrap break-words">
                           {record.comment}
                         </p>
                       </div>
