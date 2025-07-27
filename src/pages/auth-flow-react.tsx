@@ -11,7 +11,6 @@ import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
-
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
 const formatPhone = (value: string) => {
@@ -43,8 +42,11 @@ const formatPhone = (value: string) => {
 };
 
 export default function AuthFlow() {
-  const [recoveryEmail, setRecoveryEmail] = useState<string>('')
-  const [recoveryMessage, setRecoveryMessage] = useState({ type: '', text: '' })
+  const [recoveryEmail, setRecoveryEmail] = useState<string>("");
+  const [recoveryMessage, setRecoveryMessage] = useState({
+    type: "",
+    text: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
   const { login: authLogin, user, isAuthenticated, loading } = useAuth();
   const [localUserTypeSelection, setLocalUserTypeSelection] =
@@ -210,39 +212,38 @@ export default function AuthFlow() {
   }
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
-  }
-
+    setShowPassword(!showPassword);
+  };
 
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setRecoveryMessage({type: '', text: ''})
+    setRecoveryMessage({ type: "", text: "" });
 
     try {
       console.log(`Enviando link de recuperação para : ${recoveryEmail}`);
-      await api.post('/auth/forgot-password', {
+      await api.post("/auth/forgot-password", {
         email: recoveryEmail,
-
       });
 
       setRecoveryMessage({
-        type: 'success', 
-        text: 'um link foi enviado para seu e-mail.'
+        type: "success",
+        text: "um link foi enviado para seu e-mail.",
       });
 
-      setRecoveryEmail('')
-    }catch (err){
-      const error = err as AxiosError<{ message: string}>
-      console.error("Erro ao enviar link.", error)
+      setRecoveryEmail("");
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      console.error("Erro ao enviar link.", error);
 
-      const errorMessage = error.response?.data?.message || 'Ocorreu um erro. Tente novamente.'
+      const errorMessage =
+        error.response?.data?.message || "Ocorreu um erro. Tente novamente.";
 
-      setRecoveryMessage({type: 'error', text: errorMessage})
-    }finally {
-      setIsLoading(false)
+      setRecoveryMessage({ type: "error", text: errorMessage });
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-login-svg">
@@ -281,21 +282,22 @@ export default function AuthFlow() {
         </motion.div>
       </div>
 
-
-      <Modal isOpen={isModalOpen}
-       onClose={() => {
-        setIsModalOpen(false)
-        setRecoveryEmail('');
-        setRecoveryMessage({type: '', text: ''})
-      }}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setRecoveryEmail("");
+          setRecoveryMessage({ type: "", text: "" });
+        }}
         title="Esqueci senha"
-        >
-          <div className="p-3">
-            <p className="text-sm text-black mb-3">
-            Digite seu e-mail abaixo e enviaremos um link para você criar uma nova senha.
-            </p>
-            <form onSubmit={handleForgotPasswordSubmit}>
-              <Input
+      >
+        <div className="p-3">
+          <p className="text-sm text-black mb-3">
+            Digite seu e-mail abaixo e enviaremos um link para você criar uma
+            nova senha.
+          </p>
+          <form onSubmit={handleForgotPasswordSubmit}>
+            <Input
               label="E-mail"
               id="recovery-email"
               name="recovery-email"
@@ -304,26 +306,32 @@ export default function AuthFlow() {
               value={recoveryEmail}
               onChange={(e) => setRecoveryEmail(e.target.value)}
               required
-              />
-              
-              <div className="mt-4">
-                <button type="submit" className="w-full bg-[#1D4ED8] text-white p-3 rounded-md" disabled={isLoading}>
-                  {isLoading ? "Enviando...": "Recuperar Senha"}
-                </button>
-              </div>
+            />
 
-            </form>
+            <div className="mt-4">
+              <button
+                type="submit"
+                className="w-full bg-[#1D4ED8] text-white p-3 rounded-md"
+                disabled={isLoading}
+              >
+                {isLoading ? "Enviando..." : "Recuperar Senha"}
+              </button>
+            </div>
+          </form>
 
-            {recoveryMessage.text && (
-              <p className={`mt-4 text-center text-sm ${
-                recoveryMessage.type === 'success' ? 'text-green-600': 'text-red-600'
-              }`}>
-                {recoveryMessage.text}
-              </p>
-            )}
-          </div>
-        </Modal>
-
+          {recoveryMessage.text && (
+            <p
+              className={`mt-4 text-center text-sm ${
+                recoveryMessage.type === "success"
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              {recoveryMessage.text}
+            </p>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isRegistrationModalOpen}
@@ -338,10 +346,10 @@ export default function AuthFlow() {
           </div>
         )}
         {registrationSuccess && (
-           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-           <p className="text-sm text-green-600">
-              Cadastro realizado com sucesso! 
-           </p>
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600">
+              Cadastro realizado com sucesso!
+            </p>
           </div>
         )}
         <form onSubmit={handleRegistrationSubmit} className="space-y-6">
@@ -365,26 +373,27 @@ export default function AuthFlow() {
             type="email"
           />
           <div className="relative">
-          <Input
-            label="Senha"
-            id="password"
-            name="password"
-            placeholder="Digite a senha"
-            value={registrationFormData.password}
-            onChange={handleRegistrationChange}
-            required
-            type={showPassword ? 'text' : 'password'}
+            <Input
+              label="Senha"
+              id="password"
+              name="password"
+              placeholder="Digite a senha"
+              value={registrationFormData.password}
+              onChange={handleRegistrationChange}
+              required
+              type={showPassword ? "text" : "password"}
             />
-          <button
-          type="button"
-          onClick={togglePasswordVisibility}
-          className="absolute top-1/2 right-3 pt-6 -translate-y-1/2">
-            {showPassword  ? (
-              <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
-            ) : (
-              <Eye className="h-5 w-5 text-gray-600"></Eye>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className="absolute top-1/2 right-3 pt-6 -translate-y-1/2"
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
+              ) : (
+                <Eye className="h-5 w-5 text-gray-600"></Eye>
+              )}
+            </button>
           </div>
           {registrationType === "PROFESSORA" && (
             <MaskedInput
@@ -421,7 +430,6 @@ interface UserTypeSelectionProps {
   onSelect: (type: LocalUserType) => void;
 }
 
-
 function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
   return (
     <div className="p-8">
@@ -435,8 +443,12 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
             ></img>
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-blue-700">Instituto Construir</h2>
-        <p className="mt-3 text-lg text-black">Bem-vindo(a) de volta!</p>
+        <div className="ml-[20px]">
+          <h2 className="text-3xl font-bold text-blue-700">
+            Instituto Construir
+          </h2>
+          <p className="mt-3 text-lg text-black">Bem-vindo(a) de volta!</p>
+        </div>
       </div>
 
       <p className="text-sm font-medium text-gray-700 mb-4 text-center">
@@ -536,8 +548,8 @@ function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
-  }
+    setShowPassword(!showPassword);
+  };
 
   return (
     <div className="p-8">
@@ -575,7 +587,6 @@ function LoginForm({
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                     clipRule="evenodd"
                   />
-                  
                 </svg>
               </div>
               <div className="ml-3">
@@ -617,7 +628,7 @@ function LoginForm({
           <input
             id="password"
             name="password"
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -626,14 +637,15 @@ function LoginForm({
             placeholder="Digite sua senha"
           />
           <button
-          type="button"
-          onClick={togglePasswordVisibility}
-          className="absolute top-1/2 mt-2 right-0 flex items-center pr-11">
-          {showPassword? (
-            <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
-          ): (
-            <Eye className="h-5 w-5 text-gray-600"></Eye>
-          )}
+            type="button"
+            onClick={togglePasswordVisibility}
+            className="absolute top-1/2 mt-2 right-0 flex items-center pr-11"
+          >
+            {showPassword ? (
+              <EyeOff className="h-5 w-5 text-gray-600"></EyeOff>
+            ) : (
+              <Eye className="h-5 w-5 text-gray-600"></Eye>
+            )}
           </button>
         </div>
 
