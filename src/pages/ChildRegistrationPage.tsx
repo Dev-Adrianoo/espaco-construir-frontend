@@ -486,7 +486,7 @@ const ChildRegistrationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-login-svg p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Formulário de Cadastro */}
