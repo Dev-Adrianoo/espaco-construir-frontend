@@ -260,11 +260,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
     fetchSchedule();
   }, [user]);
 
-  // Atualiza o useEffect que busca dados periodicamente
   useEffect(() => {
     if (!user) return;
 
-    // Função para buscar os dados
+   
     const fetchData = async () => {
       try {
         const horariosResponse = await scheduleService.getSchedulesWithStudents(

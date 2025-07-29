@@ -306,11 +306,13 @@ const HistoryPage: React.FC = () => {
 
   if (loadingChildren || loadingHistory) {
     return (
-      <div className="min-h-screen bg-green-200 p-4 sm:p-6">
+      <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 m-3">
             Histórico de Aulas
           </h1>
+          <hr className="w-[40%] bg-black h-[3px] mb-3" />
+          <hr className="w-[20%] bg-black h-[3px]" />
           <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6 mt-5">
             <p className="text-gray-600 mb-6">
               Aqui você pode visualizar o histórico de aulas e anotações dos
@@ -419,7 +421,7 @@ const HistoryPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-login-svg p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">
           Histórico de Aulas
