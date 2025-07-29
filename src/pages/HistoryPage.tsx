@@ -168,7 +168,10 @@ const HistoryPage: React.FC = () => {
 
       try {
         if (selectedChild) {
-          console.log("Buscando histórico para aluno específico:", selectedChild);
+          console.log(
+            "Buscando histórico para aluno específico:",
+            selectedChild
+          );
           const res = await apiService.getStudentHistory(selectedChild);
           setHistoryRecords(res.data);
           console.log("Histórico recebido:", res.data);
@@ -177,11 +180,16 @@ const HistoryPage: React.FC = () => {
           const allHistory: HistoryRecord[] = [];
           for (const child of children) {
             try {
-            const res = await apiService.getStudentHistory(child.id);
-            allHistory.push(...res.data);
+              const res = await apiService.getStudentHistory(child.id);
+              allHistory.push(...res.data);
               console.log("Histórico recebido para", child.name, ":", res.data);
             } catch (childError) {
-              console.error("Erro ao buscar histórico do aluno", child.name, ":", childError);
+              console.error(
+                "Erro ao buscar histórico do aluno",
+                child.name,
+                ":",
+                childError
+              );
               // Continua buscando os outros históricos mesmo se um falhar
             }
           }
@@ -191,15 +199,15 @@ const HistoryPage: React.FC = () => {
       } catch (err: any) {
         console.error("Erro ao carregar histórico:", err);
         setHistoryError(
-          err.response?.data?.message || 
-          "Erro ao carregar histórico. Por favor, tente novamente mais tarde."
+          err.response?.data?.message ||
+            "Erro ao carregar histórico. Por favor, tente novamente mais tarde."
         );
       } finally {
         setLoadingHistory(false);
       }
     };
 
-      fetchHistory();
+    fetchHistory();
   }, [selectedChild, children]);
 
   useEffect(() => {
@@ -298,17 +306,23 @@ const HistoryPage: React.FC = () => {
 
   if (loadingChildren || loadingHistory) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6">
+      <div className="min-h-screen bg-green-200 p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 m-3">Histórico de Aulas</h1>
+          <h1 className="text-2xl font-bold text-gray-900 m-3">
+            Histórico de Aulas
+          </h1>
           <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6 mt-5">
             <p className="text-gray-600 mb-6">
-              Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
+              Aqui você pode visualizar o histórico de aulas e anotações dos
+              professores referentes aos seus filhos cadastrados.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="filterChild" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="filterChild"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Filtrar por filho
                 </label>
                 <select
@@ -318,7 +332,7 @@ const HistoryPage: React.FC = () => {
                   className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos os Alunos</option>
-                  {children.map(child => (
+                  {children.map((child) => (
                     <option key={child.id} value={child.id}>
                       {child.name}
                     </option>
@@ -347,7 +361,8 @@ const HistoryPage: React.FC = () => {
                     Nenhum histórico encontrado
                   </h3>
                   <p className="text-gray-500 mb-2">
-                    Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s) selecionado(s).
+                    Nenhum histórico foi registrado ainda para o(s) seu(s)
+                    filho(s) selecionado(s).
                   </p>
                   <p className="text-gray-500">
                     Assim que houver registros, eles aparecerão aqui!
@@ -379,12 +394,14 @@ const HistoryPage: React.FC = () => {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
-                            <span>• {formatDate(record.createdAt)}</span>             
+                            <span>• {formatDate(record.createdAt)}</span>
                           </div>
                         </div>
-                        
+
                         <div className="bg-white rounded p-3 border border-gray-100">
-                          <h4 className="font-medium text-gray-700 mb-2">Anotações:</h4>
+                          <h4 className="font-medium text-gray-700 mb-2">
+                            Anotações:
+                          </h4>
                           <p className="text-gray-600 whitespace-pre-wrap break-words">
                             {record.comment}
                           </p>
@@ -404,17 +421,23 @@ const HistoryPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Histórico de Aulas</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          Histórico de Aulas
+        </h1>
         <hr className="w-[40%] bg-black h-[3px] mb-3" />
-        <hr className="w-[20%] bg-black h-[3px]"/>
+        <hr className="w-[20%] bg-black h-[3px]" />
         <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6 mt-5">
           <p className="text-gray-600 mb-6">
-            Aqui você pode visualizar o histórico de aulas e anotações dos professores referentes aos seus filhos cadastrados.
+            Aqui você pode visualizar o histórico de aulas e anotações dos
+            professores referentes aos seus filhos cadastrados.
           </p>
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="filterChild" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="filterChild"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Filtrar por filho
               </label>
               <select
@@ -424,7 +447,7 @@ const HistoryPage: React.FC = () => {
                 className="w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Todos os Alunos</option>
-                {children.map(child => (
+                {children.map((child) => (
                   <option key={child.id} value={child.id}>
                     {child.name}
                   </option>
@@ -453,7 +476,8 @@ const HistoryPage: React.FC = () => {
                   Nenhum histórico encontrado
                 </h3>
                 <p className="text-gray-500 mb-2">
-                  Nenhum histórico foi registrado ainda para o(s) seu(s) filho(s) selecionado(s).
+                  Nenhum histórico foi registrado ainda para o(s) seu(s)
+                  filho(s) selecionado(s).
                 </p>
                 <p className="text-gray-500">
                   Assim que houver registros, eles aparecerão aqui!
@@ -488,9 +512,11 @@ const HistoryPage: React.FC = () => {
                           <span>• {formatDate(record.createdAt)}</span>
                         </div>
                       </div>
-                      
+
                       <div className="bg-[#FDFCFB] rounded p-3 border border-gray-100">
-                        <h4 className="font-bold text-gray-700 mb-2">Anotações:</h4>
+                        <h4 className="font-bold text-gray-700 mb-2">
+                          Anotações:
+                        </h4>
                         <p className="text-gray-600 whitespace-pre-wrap break-words">
                           {record.comment}
                         </p>

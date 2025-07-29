@@ -38,15 +38,15 @@ const RegisterAndListChildrenPage: React.FC = () => {
 
   // Busca o ID do responsável e a lista de alunos
   const fetchData = async () => {
-      try {
-        const response = await apiService.getCurrentGuardian();
+    try {
+      const response = await apiService.getCurrentGuardian();
       const id = response.data.id;
       setGuardianId(id);
-      
+
       const res = await apiService.getChildrenByResponsible(Number(id));
       setChildren(res.data);
     } catch (error) {
-      toast.error('Erro ao carregar dados. Por favor, recarregue a página.');
+      toast.error("Erro ao carregar dados. Por favor, recarregue a página.");
     }
   };
 
@@ -84,7 +84,7 @@ const RegisterAndListChildrenPage: React.FC = () => {
 
       // Busca os dados atualizados
       await fetchData();
-      
+
       // Limpa o formulário
       setFormData({
         name: "",
@@ -94,10 +94,10 @@ const RegisterAndListChildrenPage: React.FC = () => {
         condition: "",
         parent: guardianId,
       });
-      
-      toast.success('Aluno cadastrado com sucesso!');
+
+      toast.success("Aluno cadastrado com sucesso!");
     } catch (error) {
-      toast.error('Erro ao cadastrar aluno. Por favor, tente novamente.');
+      toast.error("Erro ao cadastrar aluno. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -110,22 +110,24 @@ const RegisterAndListChildrenPage: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!childToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       await studentService.deleteStudent(childToDelete.id);
-      
+
       // Busca os dados atualizados
       await fetchData();
-      
-      toast.success('Aluno excluído com sucesso!');
+
+      toast.success("Aluno excluído com sucesso!");
       setShowDeleteModal(false);
       setChildToDelete(null);
     } catch (error: any) {
       if (error.response?.status === 400) {
-        toast.error('Não é possível excluir o aluno pois ele possui aulas agendadas. Por favor, cancele todas as aulas antes de excluir.');
+        toast.error(
+          "Não é possível excluir o aluno pois ele possui aulas agendadas. Por favor, cancele todas as aulas antes de excluir."
+        );
       } else {
-        toast.error('Erro ao excluir aluno. Por favor, tente novamente.');
+        toast.error("Erro ao excluir aluno. Por favor, tente novamente.");
       }
     } finally {
       setIsDeleting(false);
@@ -145,7 +147,7 @@ const RegisterAndListChildrenPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto mt-8 p-4 flex flex-col gap-8">
+    <div className="max-w-7xl mx-auto mt-8 p-4 flex flex-col gap-8 bg-blue-100">
       <div className="bg-white rounded-xl shadow-md p-8">
         <h2 className="text-xl font-bold mb-4">Filhos Cadastrados</h2>
         {children.length === 0 ? (
@@ -172,7 +174,7 @@ const RegisterAndListChildrenPage: React.FC = () => {
                   <Button className="text-gray-500 hover:text-gray-700">
                     Editar
                   </Button>
-                  <Button 
+                  <Button
                     className="text-red-500 hover:text-red-700"
                     onClick={() => handleDelete(child)}
                   >
@@ -195,7 +197,8 @@ const RegisterAndListChildrenPage: React.FC = () => {
           <div className="p-4">
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-100 rounded-md">
               <p className="text-yellow-800">
-                <strong>Atenção:</strong> Ao excluir o aluno {childToDelete.name}:
+                <strong>Atenção:</strong> Ao excluir o aluno{" "}
+                {childToDelete.name}:
               </p>
               <ul className="list-disc list-inside mt-2 text-yellow-700 text-sm">
                 <li>Todos os agendamentos dele serão cancelados</li>
@@ -220,9 +223,25 @@ const RegisterAndListChildrenPage: React.FC = () => {
               >
                 {isDeleting ? (
                   <div className="flex items-center">
-                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-4 w-4 mr-2"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Excluindo...
                   </div>
