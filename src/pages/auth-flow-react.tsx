@@ -10,6 +10,7 @@ import { Axios, AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import LogoImage from '/src/images/espaco-construir-logo-Photoroom.png';
 
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
@@ -429,7 +430,7 @@ function UserTypeSelection({ onSelect }: UserTypeSelectionProps) {
         <div className="flex justify-center mb-6">
           <div className="bg-blue-100 p-4 rounded-full">
             <img
-              src="src/images/espaco-construir-logo-Photoroom.png"
+              src={LogoImage}
               alt="logo"
               className="absolute top-13 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-[96px] h-auto object-contain z-20"
             ></img>
