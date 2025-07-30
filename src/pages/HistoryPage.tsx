@@ -306,7 +306,7 @@ const HistoryPage: React.FC = () => {
 
   if (loadingChildren || loadingHistory) {
     return (
-      <div className="min-h-screen bg-green-200 p-4 sm:p-6">
+      <div className="min-h-screen p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 m-3">
             Histórico de Aulas

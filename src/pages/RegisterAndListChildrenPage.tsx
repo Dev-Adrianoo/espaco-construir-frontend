@@ -147,7 +147,7 @@ const RegisterAndListChildrenPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto mt-8 p-4 flex flex-col gap-8 bg-blue-100">
+    <div className="max-w-7xl mx-auto mt-8 p-4 flex flex-col gap-8 bg-white">
       <div className="bg-white rounded-xl shadow-md p-8">
         <h2 className="text-xl font-bold mb-4">Filhos Cadastrados</h2>
         {children.length === 0 ? (
