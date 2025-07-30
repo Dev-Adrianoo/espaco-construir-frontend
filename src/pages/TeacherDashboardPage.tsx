@@ -324,7 +324,7 @@ const TeacherDashboardPage: React.FC = () => {
   const isHistoryDisabled = true;
 
   return (
-    <div className="w-full min-h-screen flex flex-col px-2 sm:px-4 md:px-8 py-4 sm:py-8 bg-blue-100">
+    <div className="w-full min-h-screen flex flex-col px-2 sm:px-4 md:px-8 py-4 sm:py-8 bg-login-svg">
       <div className="w-full max-w-[1600px] mx-auto">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 text-left">
           Painel do Professor

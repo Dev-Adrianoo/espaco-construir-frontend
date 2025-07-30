@@ -536,7 +536,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   return (
     <>
       {user?.role === "PROFESSORA" ? (
-        <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
+        <div className="w-full h-screen flex bg-slate-50 flex-col px-4 md:px-8 py-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             Agenda da Professora
           </h1>
@@ -822,7 +822,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
           </div>
         </div>
       ) : (
-        <div className="w-full h-screen flex flex-col px-4 md:px-8 py-6">
+        <div className="w-full h-screen flex bg-slate-50 flex-col px-4 md:px-8 py-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             Agendar Aula
           </h1>

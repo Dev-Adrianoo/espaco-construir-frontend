@@ -34,7 +34,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, userType }) => {
   const links = userType === "PROFESSORA" ? teacherLinks : parentLinks;
 
   return (
-    <div className="flex-grow w-full bg-blue-100 min-h-screen">
+    <div className="flex-grow w-full bg-slate-50 min-h-screen">
       <header className="bg-white shadow-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">

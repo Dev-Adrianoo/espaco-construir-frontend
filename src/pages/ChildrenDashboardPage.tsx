@@ -5,7 +5,7 @@ import ChildrenListPage from "./ChildrenListPage";
 const ChildrenDashboardPage: React.FC = () => (
   <div>
     <ChildRegistrationPage />
-    <div className="mt-8">
+    <div className="">
       <ChildrenListPage />
     </div>
   </div>
