@@ -20,11 +20,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            echo ">>> Atualizando código do Frontend..."
-            rm -rf espaco-construir-frontend
-            git clone https://${{ secrets.GH_USERNAME }}:${{ secrets.GH_TOKEN }}@github.com/Dev-Adrianoo/espaco-construir-frontend.git         
+              echo ">>> Atualizando código do Frontend..."
+              rm -rf espaco-construir-frontend
+              git clone https://${{ secrets.GH_USERNAME }}:${{ secrets.GH_TOKEN }}@github.com/Dev-Adrianoo/espaco-construir-frontend.git         
 
-            echo ">>> Instalando dependências e buildando o Frontend..."
-            npm install
-            npm run build
-            cd ..
+              echo ">>> Instalando dependências e buildando o Frontend..."
+              cd espaco-construir-frontend
+              npm install
+              npm run build
+              cd ..
