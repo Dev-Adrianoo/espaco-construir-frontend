@@ -1,9 +1,8 @@
-name: Deploy to AWS EC2
+name: Deploy Frontend in AWS EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -12,20 +11,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2
+      - name: Login in Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: devadrianoo/instituto-desenvolver-frontend:latest
+
+      - name: Deploy in EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
           script: |
-              echo ">>> Atualizando código do Frontend..."
-              rm -rf espaco-construir-frontend
-              git clone https://${{ secrets.GH_USERNAME }}:${{ secrets.GH_TOKEN }}@github.com/Dev-Adrianoo/espaco-construir-frontend.git         
-
-              echo ">>> Instalando dependências e buildando o Frontend..."
-              cd espaco-construir-frontend
-              npm install
-              npm run build
-              cd ..
+            cd /home/ubuntu/desenvolver_instituto
+            docker-compose pull frontend
+            docker-compose up -d --no-deps frontend
+            # CORRIGIDO: Hífen em '-af'
+            docker image prune -af
