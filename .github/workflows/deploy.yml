@@ -33,6 +33,7 @@ jobs:
           script: |
             cd /home/ubuntu/desenvolver_instituto
             docker-compose pull frontend
+            docker-compose stop frontend
+            docker-compose rm -f frontend
             docker-compose up -d --no-deps frontend
-            # CORRIGIDO: Hífen em '-af'
             docker image prune -af
