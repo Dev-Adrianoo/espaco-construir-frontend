@@ -362,6 +362,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
         const studentIds = selectedChildren.map(id => Number(id));
         const firstChild = userAssociatedPeople.find(child => child.id === selectedChildren[0]);
 
+
         await apiService.bookClass({
           studentIds,
           date: selectedSlot.date,
@@ -385,7 +386,9 @@ const SchedulePage: React.FC = (): JSX.Element => {
         if (!studentToBook || !user.id) {
           toast.error("Não foi possível encontrar os dados do aluno ou do professor.");
           return;
+          
         }
+        setIsLoadingSchedule(true);
 
         await apiService.bookClass({
           studentIds: [Number(selectedStudentId)],
