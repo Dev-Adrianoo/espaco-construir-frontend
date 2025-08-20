@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 import scheduleService from "../services/scheduleService";
+import { time } from "framer-motion";
 
 // Tempos disponíveis para agendamento
 const TIME_SLOTS = [
@@ -505,7 +506,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   if (user?.role === "RESPONSAVEL" && userAssociatedPeople.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+      <div className="flex flex-col items-center justify-center h-screen text-center">
         <img
           src={logoEspacoConstruir}
           alt="Logo Espaço Construir"
@@ -592,22 +593,38 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 {/* 7 colunas para os dias */}
 
                 {Array.from({ length: 7 }).map((_, i) => {
+
                   const date = addDays(startDate, i);
                   const dateStr = format(date, "yyyy-MM-dd");
+                  const TimeNow = new Date();
+
                   return (
-                    <div key={i} className="flex flex-col">
+                    <div 
+                    key={i} 
+                    className="flex flex-col"
+                    >
+
                       {TIME_SLOTS.map((time) => {
                        const alunosAgendados = getAlunosAgendados(dateStr, time)
-                        const isBooked = alunosAgendados.length > 0;
+                       const isBooked = alunosAgendados.length > 0;
+
+                       const slotDateTime = new Date(`${dateStr}T${time}`)
+                        const isPast = slotDateTime < TimeNow
+                        
+                      
+
                         return (
                           <div
                             key={time}
                             className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                              isBooked
+                              isPast
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : isBooked
                                 ? "bg-blue-50 hover:bg-blue-100"
                                 : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
                             }`}
                             onClick={(e) => {
+                              if(isPast) return;
                               e.stopPropagation();
                               handleSlotClick(dateStr, time);
                             }}
@@ -672,7 +689,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                               </span>
                             ) : (
                               <span className="text-emerald-800 font-medium mb-2">
-                                Horário disponível
+                                {isPast ? 'Horário Encerrado' : 'Horário disponível'}
                               </span>
                             )}
                           </div>
@@ -715,18 +732,28 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 {(() => {
                   const date = addDays(startDate, currentDayIndex);
                   const dateStr = format(date, "yyyy-MM-dd");
+                  const timeNow = new Date();
+
                   return TIME_SLOTS.map((time) => {
+
                     const alunosAgendados = getAlunosAgendados(dateStr, time)
                     const isBooked = alunosAgendados.length > 0;
+
+                    const slotDateTime = new Date (`${dateStr}T${time}`);
+                    const isPast = slotDateTime < timeNow;
+
                     return (
                       <div
                         key={time}
                         className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                          isBooked
+                          isPast
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
                         }`}
                         onClick={(e) => {
+                          if (isPast) return;
                           e.stopPropagation();
                           handleSlotClick(dateStr, time);
                         }}
@@ -784,7 +811,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           </span>
                         ) : (
                           <span className="text-emerald-800 font-medium mb-2">
-                            Horário disponível
+                            {isPast ?  'Horário Encerrado' : 'Horário disponível'}
                           </span>
                         )}
                       </div>
@@ -879,22 +906,32 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 </div>
                 {/* 7 colunas para os dias */}
                 {Array.from({ length: 7 }).map((_, i) => {
+
+                  const TimeNow = new Date();
                   const date = addDays(startDate, i);
                   const dateStr = format(date, "yyyy-MM-dd");
                   return (
                     <div key={i} className="flex flex-col">
                       {TIME_SLOTS.map((time) => {
-                          const alunosAgendados = getAlunosAgendados(dateStr, time)
+
+                        const slotDateTime = new Date (`${dateStr}T${time}`)
+                        const isPast = slotDateTime < TimeNow;
+
+                        const alunosAgendados = getAlunosAgendados(dateStr, time)
                         const isBooked = alunosAgendados.length > 0;
+
                         return (
                           <div
                             key={time}
                             className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                              isBooked
+                              isPast
+                                ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                                : isBooked
                                 ? "bg-blue-50 hover:bg-blue-100"
                                 : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
                             }`}
                             onClick={(e) => {
+                              if (isPast) return;
                               e.stopPropagation();
                               handleSlotClick(dateStr, time);
                             }}
@@ -954,7 +991,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                               </span>
                             ) : (
                               <span className="text-emerald-800 font-medium mb-2">
-                                Horário disponível
+                                {isPast ? 'Horário Encerrado' : 'Horário disponivel'}
                               </span>
                             )}
                           </div>
@@ -997,19 +1034,26 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <div className="space-y-1">
                 {(() => {
                   const date = addDays(startDate, currentDayIndex);
+                  const TimeNow = new Date();
                   const dateStr = format(date, "yyyy-MM-dd");
                   return TIME_SLOTS.map((time) => {
+
+                    const slotDateTime = new Date(`${dateStr}T${time}`)
+                    const isPast = slotDateTime < TimeNow;
                     const alunosAgendados = getAlunosAgendados(dateStr, time)
                     const isBooked = alunosAgendados.length > 0;
                     return (
                       <div
                         key={time}
                         className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                          isBooked
+                          isPast 
+                           ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                          : isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
                         }`}
                         onClick={(e) => {
+                          if (isPast) return; 
                           e.stopPropagation();
                           handleSlotClick(dateStr, time);
                         }}
@@ -1067,7 +1111,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           </span>
                         ) : (
                           <span className="text-emerald-800 font-medium mb-2">
-                            Horário disponível
+                            {isPast ? 'Horário Encerrado' : 'Horário disponível'}
                           </span>
                         )}
                       </div>
