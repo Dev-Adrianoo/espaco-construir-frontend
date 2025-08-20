@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { ja, ptBR } from "date-fns/locale";
 import Button from "../components/Button";
-import { apiService, ScheduleDTO, TeacherDetails } from "../services/api";
+import { apiService, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
@@ -111,6 +111,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
   const [userAssociatedPeople, setUserAssociatedPeople] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [childrenError, setChildrenError] = useState<string | null>(null);
   const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [showIntentModal, setShowIntentModal] = useState(false);
@@ -347,12 +348,17 @@ const SchedulePage: React.FC = (): JSX.Element => {
         if (!selectedTeacherId || selectedChildren.length === 0) {
           toast.error("Por favor, selecione um slot, pelo menos um aluno e uma professora.");
           return;
+
         }
         const guardianId = authService.getUserId();
+
         if (!guardianId) {
           toast.error("Erro: Certifique-se de estar logado.");
           return;
+
         }
+        setIsLoadingSchedule(true);
+
         const studentIds = selectedChildren.map(id => Number(id));
         const firstChild = userAssociatedPeople.find(child => child.id === selectedChildren[0]);
 
@@ -403,6 +409,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
     } catch (error) {
       const err = error as AxiosError<{ message: string }>;
       toast.error(err.response?.data?.message || "Erro ao tentar agendar a aula.");
+    } finally {
+      setIsLoadingSchedule(false);
     }
   };
 
@@ -1180,7 +1188,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   return [...defaultOption, ...options];
                 })()}
               </select>
-              {/* MUDANÇA: A dica de seleção múltipla só aparece para o responsável */}
+              
               {String(user?.role) !== 'PROFESSORA' && (
                 <span className="text-xs text-gray-500 block mt-1">
                   Segure <b>Ctrl</b> (Windows) ou <b>Command</b> (Mac) para selecionar mais de um.
@@ -1188,7 +1196,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               )}
             </div>
 
-            {/* MUDANÇA: O seletor de professora só aparece se quem agenda NÃO é uma professora */}
+            {}
             {String(user?.role) !== 'PROFESSORA' && (
               <div className="mb-4">
                 <label
@@ -1217,9 +1225,15 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
             <button
               onClick={handleConfirmBooking}
+              disabled={isLoadingSchedule}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-lg shadow-md mt-2"
             >
-              Confirmar Agendamento
+              {isLoadingSchedule ? (
+                <svg className="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : ('Confirmar Agendamento')}
             </button>
           </div>
         )}
