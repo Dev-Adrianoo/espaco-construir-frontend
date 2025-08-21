@@ -43,6 +43,7 @@ interface ScheduledClass {
   description: string;
   difficulties: string;
   condition: string;
+  status: "SCHEDULED" | "CANCELLED"
 }
 
 // Interface para os detalhes completos do aluno (TeacherStudent do backend)
@@ -66,7 +67,6 @@ const TeacherDashboardPage: React.FC = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startDate);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Novos estados para dados reais e carregamento
   const [teacherSchedules, setTeacherSchedules] = useState<ScheduledClass[]>(
     []
   );
@@ -184,6 +184,7 @@ const TeacherDashboardPage: React.FC = () => {
               description: schedule.description || "",
               difficulties: schedule.difficulties || "Nenhuma",
               condition: schedule.condition || "Nenhuma",
+              status: schedule.status,
             };
           }
         );
@@ -212,7 +213,9 @@ const TeacherDashboardPage: React.FC = () => {
   }, []);
 
   const classesForSelectedDate = teacherSchedules.filter(
-    (cls) => cls.date === format(selectedDate, "yyyy-MM-dd")
+    (cls) =>
+      cls.date === format(selectedDate, "yyyy-MM-dd") &&
+      cls.status !== "CANCELLED"
   );
 
   const getStudentDetails = (studentId: number) => {
@@ -360,9 +363,10 @@ const TeacherDashboardPage: React.FC = () => {
             {Array.from({ length: 7 }).map((_, i) => {
               const date = addDays(currentWeekStart, i);
               const dateStr = format(date, "yyyy-MM-dd");
-              const dayClasses = teacherSchedules.filter(
-                (cls) => cls.date === dateStr
-              );
+
+              const dayClasses = teacherSchedules
+              .filter((cls) => cls.date === dateStr)
+              .filter((cls) => cls.status != 'CANCELLED');
               const isSelected = isSameDay(date, selectedDate);
 
               // On mobile, only show current day and next 2 days
@@ -597,9 +601,7 @@ const TeacherDashboardPage: React.FC = () => {
                   <a
                     href="#"
                     className="inline-flex items-center text-xs sm:text-sm text-indigo-600 hover:text-indigo-800"
-                    onClick={() =>
-                      alert("Mensagem do WhatsApp será enviada aqui")
-                    }
+                    
                   >
                     <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     WhatsApp
