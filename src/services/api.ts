@@ -64,6 +64,15 @@ export interface ClassHistoryDTO {
   guardianId?: number | null;
 }
 
+export interface AuthData {
+  token: string;
+  id: number; 
+  name: string;
+  email: string;
+  role: "PROFESSORA" | "RESPONSAVEL";
+  refreshToken?: string;
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 30000,
@@ -135,7 +144,7 @@ api.interceptors.response.use(
   }
 );
 
-// Função auxiliar para fazer logout
+
 const handleLogout = async () => {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
@@ -149,13 +158,20 @@ const handleLogout = async () => {
 export const apiService = {
 
   login: (data: { email: string; password: string; userType: string }) => 
-    api.post('/auth/login', data),
+    api.post<AuthData>('/auth/login', data),
+
+  verifyEmail: (token: string) =>
+    api.get<AuthData>(`/auth/verify-email?token=${token}`),
   
   verifyToken: (token: string) =>
     api.post('/auth/verify', { token }),
 
   resetPassword: (data: ResetPasswordData) => {
     return api.post('/auth/reset-password', data);
+  },
+
+  refreshToken: (token: string) => {
+    return api.post('/auth/refresh', {token})
   },
 
   registerResponsible: (data: {

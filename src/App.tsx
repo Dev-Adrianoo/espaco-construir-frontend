@@ -20,6 +20,7 @@ import RegisterTeacherPage from "./pages/RegisterTeacherPage";
 import ChildrenDashboardPage from "./pages/ChildrenDashboardPage";
 import GuardianDashboard from "./pages/GuardianDashboard";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 const ProtectedLayout = () => {
   const { user } = useAuth();
@@ -46,11 +47,13 @@ function AppRoutes() {
   return (
     <Routes>
      
+     // Todas as rotas publicas
       <Route path="/" element={<AuthFlow />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+
 
       <Route element={<ProtectedLayout />}>
-   
         <Route path="/teacher-dashboard" element={<TeacherDashboardPage />} />
         <Route path="/guardian-dashboard" element={<GuardianDashboard />} />
         <Route path="/register-child" element={<ChildRegistrationPage />} />

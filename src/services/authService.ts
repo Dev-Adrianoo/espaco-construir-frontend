@@ -1,4 +1,4 @@
-import api from './api';
+import api, { apiService } from './api';
 
 export interface LoginCredentials {
   email: string;
@@ -114,7 +114,12 @@ const authService = {
       return localStorage.getItem('professorId');
     }
     return localStorage.getItem('userId');
-  }
+  },
+
+  verifyEmail: (token: string) => {
+    return apiService.verifyEmail(token);
+  },
+
 };
 
 export default authService; 

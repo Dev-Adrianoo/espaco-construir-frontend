@@ -1,16 +1,18 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { GraduationCap, User as UserIcon } from "lucide-react";
 import Modal from "../components/Modal";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import api, { apiService } from "../services/api";
-import { Axios, AxiosError } from "axios";
+import {  AxiosError } from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import MaskedInput from "../components/MaskedInput";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import LogoImage from '/src/images/espaco-construir-logo-Photoroom.png';
+import VerificationMessageModal from "../components/VerificationMessageModal";
+import authService from "../services/authService";
 
 type LocalUserType = "PROFESSORA" | "RESPONSAVEL" | null;
 
@@ -43,11 +45,14 @@ const formatPhone = (value: string) => {
 };
 
 export default function AuthFlow() {
+  const navigate = useNavigate();
   const [recoveryEmail, setRecoveryEmail] = useState<string>("");
   const [recoveryMessage, setRecoveryMessage] = useState({
     type: "",
     text: "",
   });
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const { login: authLogin, user, isAuthenticated, loading } = useAuth();
   const [localUserTypeSelection, setLocalUserTypeSelection] =
@@ -116,11 +121,11 @@ export default function AuthFlow() {
     setRegistrationSuccess(false);
     setIsLoading(true);
 
-    // Remove formatação do telefone e CNPJ antes de validar/enviar
+    
     const cleanPhone = registrationFormData.phone.replace(/\D/g, "");
     const cleanCnpj = registrationFormData.cnpj.replace(/\D/g, "");
 
-    // Validar formato do telefone
+
     const phoneRegex = /^\d{10,11}$/;
     if (!phoneRegex.test(cleanPhone)) {
       setRegistrationError("O telefone deve ter 10 ou 11 dígitos");
@@ -146,18 +151,8 @@ export default function AuthFlow() {
         });
       }
 
-      setRegistrationSuccess(true);
-      setRegistrationFormData({
-        name: "",
-        email: "",
-        password: "",
-        phone: "",
-        cnpj: "",
-      });
-      setTimeout(() => {
-        setIsRegistrationModalOpen(false);
-        setRegistrationSuccess(false);
-      }, 2000);
+      handleCadastroSucess(registrationFormData.email);
+
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
       console.error("Registration error:", error);
@@ -181,6 +176,25 @@ export default function AuthFlow() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCadastroSucess = (email: string) => {
+
+    authService.logout();
+
+    navigate('/');
+
+    setIsRegistrationModalOpen(false);
+    setUserEmail(email);
+    setShowVerificationModal(true);
+
+    setRegistrationFormData({
+      name: "", 
+      email: "",
+      password: "",
+      phone: "",
+      cnpj: "",
+    });
   };
 
   const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -423,6 +437,12 @@ export default function AuthFlow() {
           </Button>
         </form>
       </Modal>
+
+      <VerificationMessageModal
+      isOpen={showVerificationModal}
+       onClose={() => setShowVerificationModal(false)}
+       userEmail={userEmail}
+      />
     </div>
   );
 }
