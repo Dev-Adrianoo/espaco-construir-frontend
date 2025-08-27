@@ -33,7 +33,8 @@ export interface ScheduleWithStudents {
   hora: string;
   alunos: string[];
   studentIds: number[];
-  scheduleIds: number[];  // IDs dos agendamentos retornados pela API
+  scheduleIds: number[];  
+  recurrenceIds?: (string | null)[]
 }
 
 const scheduleService = {
@@ -154,6 +155,7 @@ const scheduleService = {
             horarioExistente.alunos.push(agendamento.studentName);
             horarioExistente.studentIds.push(Number(agendamento.studentId));
             horarioExistente.scheduleIds.push(Number(agendamento.id));  // ID do agendamento
+            horarioExistente.recurrenceIds?.push(agendamento.recurrenceId || null);
           }
         } else {
           // Se não existe, cria um novo horário
@@ -163,7 +165,8 @@ const scheduleService = {
             hora,
               alunos: [agendamento.studentName],
               studentIds: [Number(agendamento.studentId)],
-              scheduleIds: [Number(agendamento.id)]  // ID do agendamento
+              scheduleIds: [Number(agendamento.id)],  // ID do agendamento
+              recurrenceIds: [agendamento.recurrenceId || null]
           });
           }
         }

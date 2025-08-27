@@ -52,6 +52,7 @@ export interface BookClassPayload {
   teacherId: number;
   difficulties?: string;
   condition?: string;
+  recurrenceType: 'WEEKLY' | 'ONCE';
 }
 
 export interface ClassHistoryDTO {
@@ -80,6 +81,11 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export interface CancellationRequestPayload {
+  scheduleId: number;
+  scope: string;
+}
 
 // Request interceptor
 api.interceptors.request.use(
@@ -173,6 +179,11 @@ export const apiService = {
   refreshToken: (token: string) => {
     return api.post('/auth/refresh', {token})
   },
+
+  cancelBooking: (payload: CancellationRequestPayload) =>
+    api.post('/schedules/cancel', payload),
+
+
 
   registerResponsible: (data: {
     name: string;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
-import { ja, ptBR } from "date-fns/locale";
+import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import { apiService, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
@@ -76,13 +76,15 @@ interface ScheduleWithStudents {
   hora: string;
   alunos: string[];
   studentIds: number[];
-  scheduleIds: number[];  
+  scheduleIds: number[];
+  recurrenceIds?: (string | null)[];
 }
 
 interface AlunoAgendado {
   id: string;
   studentName: string;
   scheduleId: string;
+  recurrenceId?: string | null;
 }
 
 const SchedulePage: React.FC = (): JSX.Element => {
@@ -110,6 +112,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   }
 
   const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
+  const [isRecurring, setIsRecurring] = useState<boolean>(false);
   const [userAssociatedPeople, setUserAssociatedPeople] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
@@ -151,6 +154,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     scheduleId: number;
     childName: string;
     filhosNaoAgendados: Child[];
+    recurrenceId?: string | null;
   } | null>(null);
 
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState<{
@@ -158,16 +162,24 @@ const SchedulePage: React.FC = (): JSX.Element => {
     date?: string;
     time?: string;
     studentName?: string;
-  }>({ show: false });
+    scheduleId?: number | null;
+    recurrenceId?: string | null;
+  }>({
+    show: false,
+    scheduleId: null,
+    studentName: '',
+    recurrenceId: null
+  });
 
   const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelType, setCancelType] = useState<'SINGLE' | 'ALL_RECURRING' | null>(null);
 
   const formatDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-");
     return `${day}/${month}/${year}`;
   };
 
-  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null) 
+  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null)
 
   const fetchSchedule = async () => {
     if (!user) return;
@@ -175,7 +187,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     setScheduleError(null);
 
     try {
-    if (user.role === "RESPONSAVEL") {
+      if (user.role === "RESPONSAVEL") {
         const responsavelId = user.id;
         try {
           setLoadingChildren(true);
@@ -248,14 +260,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
         setHorariosComAlunos(horariosResponse);
       } catch (error) {
         console.error('Erro ao buscar horários:', error);
-          setScheduleError("Não foi possível carregar os agendamentos.");
+        setScheduleError("Não foi possível carregar os agendamentos.");
       }
     } catch (error) {
       console.error('Erro geral:', error);
       setScheduleError("Ocorreu um erro ao carregar os dados.");
-        } finally {
-          setLoadingSchedule(false);
-        }
+    } finally {
+      setLoadingSchedule(false);
+    }
   };
 
   useEffect(() => {
@@ -265,7 +277,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (!user) return;
 
-   
+
     const fetchData = async () => {
       try {
         const horariosResponse = await scheduleService.getSchedulesWithStudents(
@@ -291,12 +303,12 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
   // Função utilitária para pegar todos os alunos agendados em um slot
   function getAlunosAgendados(date: string, time: string): AlunoAgendado[] {
-    
-    if(!horariosComAlunos || !Array.isArray(horariosComAlunos)){
+
+    if (!horariosComAlunos || !Array.isArray(horariosComAlunos)) {
       return [];
     }
-    
- 
+
+
     const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
 
     if (!horario) {
@@ -308,6 +320,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
         studentName: nome,
         id: horario.studentIds[index].toString(),
         scheduleId: horario.scheduleIds[index].toString(),
+        recurrenceId: horario.recurrenceIds ? horario.recurrenceIds[index] : null
       }
     })
     return alunosCompletos
@@ -339,7 +352,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
       console.log('[ AVISO ] setShowBookingModal(true) chamado, setModalAlunos(null)');
     }
   };
-  
+
 
   const handleConfirmBooking = async () => {
     if (!selectedSlot || !user) return;
@@ -373,6 +386,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
           teacherId: Number(selectedTeacherId),
           difficulties: firstChild?.difficulties || "",
           condition: firstChild?.condition || "",
+          recurrenceType: isRecurring ? 'WEEKLY' : 'ONCE'
         });
         toast.success("Aula agendada com sucesso!");
 
@@ -381,13 +395,13 @@ const SchedulePage: React.FC = (): JSX.Element => {
           toast.error("Por favor, selecione um aluno para agendar.");
           return;
         }
-        
+
         const studentToBook = userAssociatedPeople.find(student => student.id === selectedStudentId);
 
         if (!studentToBook || !user.id) {
           toast.error("Não foi possível encontrar os dados do aluno ou do professor.");
           return;
-          
+
         }
         setIsLoadingSchedule(true);
 
@@ -400,6 +414,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
           teacherId: Number(user.id),
           difficulties: studentToBook.difficulties || "",
           condition: studentToBook.condition || "",
+          recurrenceType: isRecurring ? 'WEEKLY' : 'ONCE'
         });
         toast.success("Aula agendada com sucesso!");
       }
@@ -418,42 +433,51 @@ const SchedulePage: React.FC = (): JSX.Element => {
     }
   };
 
-  // Função para verificar filhos disponíveis para agendamento
   const getFilhosDisponiveis = () => {
-
-    if (!modalAlunos || !userAssociatedPeople) return [];
-
-    return !modalAlunos.filter(child => {
-
-      const JaEstaAgendado = modalAlunos.some(alunoAgendado => alunoAgendado.studentName === child.studentName)
-
-      return !JaEstaAgendado
-    });
+    if (!modalAlunos || !userAssociatedPeople) {
+      return [];
+    }
+    const agendadosNomes = modalAlunos.map(aluno => aluno.studentName);
+    return userAssociatedPeople.filter(child => !agendadosNomes.includes(child.name));
   };
 
-  const handleCancelSchedule = async (scheduleIdToCancel: string) => {
+  const handleConfirmCancellation = async (scope: "SINGLE" | "ALL_RECURRING") => {
+
+    const scheduleIdToCancel = showCancelConfirmModal.scheduleId;
+
+    if (!scheduleIdToCancel) {
+      toast.error(`Erro: ID do agendamento não encontrado.`);
+      return;
+    }
+
+    setIsCanceling(true);
+    setCancelType(scope);
     try {
-      console.log('[handleCancelSchedule] Iniciando cancelamento para:', scheduleIdToCancel);
-      setIsCanceling(true);
+      await apiService.cancelBooking({
+        scheduleId: Number(showCancelConfirmModal.scheduleId),
+        scope: scope
+      });
 
+      toast.success(`Agendamento(s) cancelado(s) com sucesso!`);
 
-     await scheduleService.cancelSchedule(scheduleIdToCancel)
-
-     console.log('[handleCancelSchedule] Agendamento cancelado com sucesso no backend');
-     toast.success(`Aula cancelada com sucesso!`);
- 
+      setShowCancelConfirmModal({
+        show: false,
+        scheduleId: null,
+        studentName: '',
+        recurrenceId: null
+      });
+      setModalAlunos(null);
       await fetchSchedule();
 
-      setModalAlunos(null)
-      setShowCancelConfirmModal({show: false})
+    } catch (error) {
+      console.error(`[handleConfirmCancellation] Erro ao cancelar: `, error);
+      toast.error(`Erro ao cancelar agendamento. Tente novamente.`);
 
-    } catch (error: any){
-      console.error("[handleCancelSchedule] Erro ao cancelar: ", error)
-      toast.error(error.message || 'Erro ao cancelar agendamento.')
     } finally {
-      setIsCanceling(false)
+      setIsCanceling(false);
+      setCancelType(null);
     }
-  };
+  }
 
   const handleModalClose = () => {
     setShowBookingModal(false);
@@ -474,7 +498,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
   };
 
   // Atualiza a condição de loading baseada no papel do usuário
-  const isLoading = user?.role === "RESPONSAVEL" 
+  const isLoading = user?.role === "RESPONSAVEL"
     ? loadingChildren || loadingSchedule || loadingTeachers
     : loadingSchedule;
 
@@ -483,7 +507,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
       <div className="flex justify-center items-center h-screen">
         <LoadingSpinner />
         <p className="ml-2 text-gray-500">
-          {user?.role === "RESPONSAVEL" 
+          {user?.role === "RESPONSAVEL"
             ? "Carregando dados..."
             : "Carregando agenda da professora..."
           }
@@ -568,9 +592,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   return (
                     <div
                       key={day}
-                      className={`text-center text-sm font-semibold text-gray-700 ${
-                        isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
-                      }`}
+                      className={`text-center text-sm font-semibold text-gray-700 ${isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
+                        }`}
                     >
                       {day}
                     </div>
@@ -599,42 +622,40 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   const TimeNow = new Date();
 
                   return (
-                    <div 
-                    key={i} 
-                    className="flex flex-col"
+                    <div
+                      key={i}
+                      className="flex flex-col"
                     >
 
                       {TIME_SLOTS.map((time) => {
-                       const alunosAgendados = getAlunosAgendados(dateStr, time)
-                       const isBooked = alunosAgendados.length > 0;
+                        const alunosAgendados = getAlunosAgendados(dateStr, time)
+                        const isBooked = alunosAgendados.length > 0;
 
-                       const slotDateTime = new Date(`${dateStr}T${time}`)
+                        const slotDateTime = new Date(`${dateStr}T${time}`)
                         const isPast = slotDateTime < TimeNow
-                        
-                      
+
+
 
                         return (
                           <div
                             key={time}
-                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                              isPast
+                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${isPast
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                               : isBooked
                                 ? "bg-blue-50 hover:bg-blue-100"
                                 : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                            }`}
+                              }`}
                             onClick={(e) => {
-                              if(isPast) return;
+                              if (isPast) return;
                               e.stopPropagation();
                               handleSlotClick(dateStr, time);
                             }}
                           >
                             <span
-                              className={`pt-2 text-sm ${
-                                isBooked
-                                  ? "text-blue-800"
-                                  : "text-emerald-800"
-                              }`}
+                              className={`pt-2 text-sm ${isBooked
+                                ? "text-blue-800"
+                                : "text-emerald-800"
+                                }`}
                             >
                               {time}
                             </span>
@@ -648,7 +669,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setModalAlunos(alunosAgendados)
-                    
+
                                 }}
                               >
                                 {alunosAgendados.length === 0 ? (
@@ -657,8 +678,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                   <div className="flex flex-col gap-1">
                                     <span className="font-medium">
                                       {user?.role === "RESPONSAVEL"
-                                        ? `${alunosAgendados.length} filhos agendados`
-                                        : `${alunosAgendados.length} alunos agendados`}
+                                        ? `${alunosAgendados.length} Filhos agendados`
+                                        : `${alunosAgendados.length} Alunos agendados`}
                                     </span>
                                     <button
                                       onClick={(e) => {
@@ -670,7 +691,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                       Ver nomes
                                     </button>
                                   </div>
-                                ) : ( 
+                                ) : (
                                   <div
                                     className="flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer"
                                     onClick={(e) => {
@@ -739,19 +760,18 @@ const SchedulePage: React.FC = (): JSX.Element => {
                     const alunosAgendados = getAlunosAgendados(dateStr, time)
                     const isBooked = alunosAgendados.length > 0;
 
-                    const slotDateTime = new Date (`${dateStr}T${time}`);
+                    const slotDateTime = new Date(`${dateStr}T${time}`);
                     const isPast = slotDateTime < timeNow;
 
                     return (
                       <div
                         key={time}
-                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                          isPast
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${isPast
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                        }`}
+                          }`}
                         onClick={(e) => {
                           if (isPast) return;
                           e.stopPropagation();
@@ -759,9 +779,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                         }}
                       >
                         <span
-                          className={`pt-2 text-sm ${
-                            isBooked ? "text-blue-800" : "text-emerald-800"
-                          }`}
+                          className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"
+                            }`}
                         >
                           {time}
                         </span>
@@ -779,8 +798,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                               <div className="flex flex-col gap-1">
                                 <span className="font-medium">
                                   {user?.role === "RESPONSAVEL"
-                                    ? `${alunosAgendados.length} filhos agendados`
-                                    : `${alunosAgendados.length} alunos agendados`}
+                                    ? `${alunosAgendados.length} Filhos agendados`
+                                    : `${alunosAgendados.length} Alunos agendados`}
                                 </span>
                                 <button
                                   onClick={(e) => {
@@ -811,7 +830,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           </span>
                         ) : (
                           <span className="text-emerald-800 font-medium mb-2">
-                            {isPast ?  'Horário Encerrado' : 'Horário disponível'}
+                            {isPast ? 'Horário Encerrado' : 'Horário disponível'}
                           </span>
                         )}
                       </div>
@@ -836,11 +855,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           setCurrentDayIndex(i);
                           setShowWeekCalendarModal(false);
                         }}
-                        className={`p-6 rounded-lg text-center transition-colors ${
-                          isSelected
-                            ? "bg-primary text-white"
-                            : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                        }`}
+                        className={`p-6 rounded-lg text-center transition-colors ${isSelected
+                          ? "bg-primary text-white"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                          }`}
                       >
                         <div className="text-[0.6rem] font-medium">
                           {format(date, "EEE", { locale: ptBR }).substring(
@@ -882,9 +900,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   return (
                     <div
                       key={day}
-                      className={`text-center text-sm font-semibold text-gray-700 ${
-                        isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
-                      }`}
+                      className={`text-center text-sm font-semibold text-gray-700 ${isToday ? "bg-blue-500 text-white rounded-md p-1" : ""
+                        }`}
                     >
                       {day}
                     </div>
@@ -914,7 +931,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                     <div key={i} className="flex flex-col">
                       {TIME_SLOTS.map((time) => {
 
-                        const slotDateTime = new Date (`${dateStr}T${time}`)
+                        const slotDateTime = new Date(`${dateStr}T${time}`)
                         const isPast = slotDateTime < TimeNow;
 
                         const alunosAgendados = getAlunosAgendados(dateStr, time)
@@ -923,13 +940,12 @@ const SchedulePage: React.FC = (): JSX.Element => {
                         return (
                           <div
                             key={time}
-                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                              isPast
-                                ? "cursor-not-allowed bg-gray-100 text-gray-400"
-                                : isBooked
+                            className={`relative w-full h-24 border border-gray-200 flex flex-col items-center justify-between text-xs font-medium transition-colors ${isPast
+                              ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                              : isBooked
                                 ? "bg-blue-50 hover:bg-blue-100"
                                 : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                            }`}
+                              }`}
                             onClick={(e) => {
                               if (isPast) return;
                               e.stopPropagation();
@@ -937,11 +953,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
                             }}
                           >
                             <span
-                              className={`pt-2 text-sm ${
-                                isBooked
-                                  ? "text-blue-800"
-                                  : "text-emerald-800"
-                              }`}
+                              className={`pt-2 text-sm ${isBooked
+                                ? "text-blue-800"
+                                : "text-emerald-800"
+                                }`}
                             >
                               {time}
                             </span>
@@ -959,8 +974,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                                   <div className="flex flex-col gap-1">
                                     <span className="font-medium">
                                       {user?.role === "RESPONSAVEL"
-                                        ? `${alunosAgendados.length} filhos agendados`
-                                        : `${alunosAgendados.length} alunos agendados`}
+                                        ? `${alunosAgendados.length} Filhos agendados`
+                                        : `${alunosAgendados.length} Alunos agendados`}
                                     </span>
                                     <button
                                       onClick={(e) => {
@@ -1045,23 +1060,21 @@ const SchedulePage: React.FC = (): JSX.Element => {
                     return (
                       <div
                         key={time}
-                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${
-                          isPast 
-                           ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                        className={`relative w-full h-24 rounded-md flex flex-col items-center justify-between text-xs font-medium transition-colors ${isPast
+                          ? "cursor-not-allowed bg-gray-100 text-gray-400"
                           : isBooked
                             ? "bg-blue-50 hover:bg-blue-100"
                             : "bg-emerald-100/70 hover:bg-emerald-100 cursor-pointer"
-                        }`}
+                          }`}
                         onClick={(e) => {
-                          if (isPast) return; 
+                          if (isPast) return;
                           e.stopPropagation();
                           handleSlotClick(dateStr, time);
                         }}
                       >
                         <span
-                          className={`pt-2 text-sm ${
-                            isBooked ? "text-blue-800" : "text-emerald-800"
-                          }`}
+                          className={`pt-2 text-sm ${isBooked ? "text-blue-800" : "text-emerald-800"
+                            }`}
                         >
                           {time}
                         </span>
@@ -1079,8 +1092,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
                               <div className="flex flex-col gap-1">
                                 <span className="font-medium">
                                   {user?.role === "RESPONSAVEL"
-                                    ? `${alunosAgendados.length} filhos agendados`
-                                    : `${alunosAgendados.length} alunos agendados`}
+                                    ? `${alunosAgendados.length} Filhos agendados`
+                                    : `${alunosAgendados.length} Alunos agendados`}
                                 </span>
                                 <button
                                   onClick={(e) => {
@@ -1136,11 +1149,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
                           setCurrentDayIndex(i);
                           setShowWeekCalendarModal(false);
                         }}
-                        className={`p-6 rounded-lg text-center transition-colors ${
-                          isSelected
-                            ? "bg-primary text-white"
-                            : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                        }`}
+                        className={`p-6 rounded-lg text-center transition-colors ${isSelected
+                          ? "bg-primary text-white"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                          }`}
                       >
                         <div className="text-[0.6rem] font-medium">
                           {format(date, "EEE", { locale: ptBR }).substring(
@@ -1169,13 +1181,16 @@ const SchedulePage: React.FC = (): JSX.Element => {
         zIndex={1000}
       >
         {selectedSlot && (
-          <div className="space-y-6 p-2 md:p-4">
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
-              Confirmar Agendamento
-            </h2>
-            <p className="text-center text-gray-600 mb-4">
-              Você está prestes a agendar uma aula para:
-            </p>
+          <div className="space-y-6 p-2 md:p-4 bg-white rounded-lg shadow-xl">
+            <div className="border-b pb-4 mb-4">
+              <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
+                Confirmar Agendamento
+              </h2>
+              <p className="text-center text-gray-600 mb-4">
+                Você está prestes a agendar uma aula para:
+              </p>
+            </div>
+
             <div className="flex flex-col md:flex-row md:space-x-8 md:justify-center mb-2">
               <div className="mb-2 md:mb-0">
                 <span className="block text-sm text-gray-500">Data:</span>
@@ -1191,6 +1206,9 @@ const SchedulePage: React.FC = (): JSX.Element => {
               </div>
             </div>
 
+            <hr className="my-4 border-gray-200" />
+
+
             <div className="mb-4">
               <label
                 htmlFor="child-select"
@@ -1205,7 +1223,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-h-[70px]"
                 value={String(user?.role) === 'PROFESSORA' ? selectedStudentId : selectedChildren}
                 onChange={(e) => {
-                  if(String(user?.role) === "PROFESSORA"){
+                  if (String(user?.role) === "PROFESSORA") {
                     setSelectedStudentId(e.target.value)
                   } else {
                     const options = Array.from(e.target.selectedOptions).map(opt => opt.value)
@@ -1220,14 +1238,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
                   const alunosJaAgendados = getAlunosAgendados(selectedSlot.date, selectedSlot.time)
 
-                  const pessoasDisponiveis = listaDePessoas.filter((p: Child) => 
+                  const pessoasDisponiveis = listaDePessoas.filter((p: Child) =>
                     !alunosJaAgendados.some(alunoAgendado => alunoAgendado.studentName === p.name)
                   )
 
                   if (pessoasDisponiveis.length === 0) {
                     return <option disabled>Nenhum Aluno/filho disponível</option>;
                   }
-                 
+
                   const defaultOption = String(user?.role) === "PROFESSORA" ? [<option key="disabled" value="" disabled>Selecione um aluno</option>] : [];
                   const options = pessoasDisponiveis.map((pessoa: Child) => (
                     <option key={pessoa.id} value={pessoa.id}>{pessoa.name}</option>
@@ -1235,15 +1253,15 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   return [...defaultOption, ...options];
                 })()}
               </select>
-              
+
               {String(user?.role) !== 'PROFESSORA' && (
-                <span className="text-xs text-gray-500 block mt-1">
+                <span className="text-xs text-gray-500 hidden md:block mt-1">
                   Segure <b>Ctrl</b> (Windows) ou <b>Command</b> (Mac) para selecionar mais de um.
                 </span>
               )}
             </div>
 
-            {}
+            { }
             {String(user?.role) !== 'PROFESSORA' && (
               <div className="mb-4">
                 <label
@@ -1269,6 +1287,21 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 </select>
               </div>
             )}
+            <div className="flex items-center justify-between mt-4 p-4 bg-gray-50 rounded-lg border">
+              <label htmlFor="recurrence-toggle" className="font-medium text-gray-700">
+                Repetir semanalmente
+              </label>
+              <label htmlFor="recurrence-toggle" className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="recurrence-toggle"
+                  className="sr-only peer"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                />
+                <div className="w-11 h-6  bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
 
             <button
               onClick={handleConfirmBooking}
@@ -1290,77 +1323,69 @@ const SchedulePage: React.FC = (): JSX.Element => {
       {showCancelConfirmModal.show && (
         <Modal
           isOpen={showCancelConfirmModal.show}
-          onClose={() => !isCanceling && setShowCancelConfirmModal({ show: false })}
+          onClose={() => !isCanceling && setShowCancelConfirmModal({ show: false, scheduleId: null, studentName: null, recurrenceId: null })}
           title="Confirmar Cancelamento"
           zIndex={2000}
         >
           <div className="p-4">
-            <div className="flex items-center gap-3 p-3 bg-red-50 rounded border border-red-100 mb-4">
-              <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+           
+            {showCancelConfirmModal.recurrenceId ? (
+              
+              <div>
+                <div className="flex items-center gap-3 p-3 bg-red-50 rounded border border-red-100 mb-4">
+                  <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <p className="text-red-600">
+                    Esta aula de <strong>{showCancelConfirmModal.studentName}</strong> faz parte de uma série semanal. Como você deseja cancelar?
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 mt-4">
+                  <button
+                    onClick={() => handleConfirmCancellation('SINGLE')}
+                    disabled={isCanceling}
+                    className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    {isCanceling && cancelType === 'SINGLE' ? 'Aguarde...' : 'Cancelar apenas esta aula'}
+                  </button>
+                  <button
+                    onClick={() => handleConfirmCancellation('ALL_RECURRING')}
+                    disabled={isCanceling}
+                    className="w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                  >
+                    {isCanceling && cancelType === 'ALL_RECURRING' ? (<svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : null}
+                    {isCanceling && cancelType === 'ALL_RECURRING' ? 'Cancelando...' : 'Cancelar esta e todas as futuras'}
+                  </button>
+                </div>
               </div>
-              <p className="text-red-600">
-                Tem certeza que deseja cancelar a aula de {showCancelConfirmModal.studentName}?
-              </p>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowCancelConfirmModal({ show: false })}
-                disabled={isCanceling}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                Não, manter
-              </button>
-              <button
-                onClick={async () => {
-                  if (!showCancelConfirmModal.date || !showCancelConfirmModal.time || !showCancelConfirmModal.studentName) {
-                    console.error('[CancelButton] Dados incompletos:', showCancelConfirmModal);
-                    toast.error('Erro: Dados incompletos para cancelamento');
-                    return;
-                  }
-
-                  try {
-                    setIsCanceling(true);
-                    console.log('[CancelButton] Iniciando cancelamento com dados:', {
-                      date: showCancelConfirmModal.date,
-                      time: showCancelConfirmModal.time,
-                      studentName: showCancelConfirmModal.studentName
-                    });
-
-                      await handleCancelSchedule(String(confirmingCancelId));
-
-                    // Fecha o modal apenas se o cancelamento foi bem sucedido
-                      setShowCancelConfirmModal({ show: false });
-                    setModalAlunos(null); // Fecha também o modal de alunos
-                    
-                    // Atualiza a lista de agendamentos
-                    await fetchSchedule();
-                  } catch (error) {
-                    console.error('[CancelButton] Erro ao cancelar:', error);
-                    toast.error('Erro ao cancelar agendamento. Tente novamente.');
-                  } finally {
-                    setIsCanceling(false);
-                  }
-                }}
-                disabled={isCanceling}
-                className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 disabled:opacity-50"
-              >
-                {isCanceling ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-                {isCanceling ? 'Cancelando...' : 'Sim, cancelar'}
-              </button>
-            </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-3 p-3 bg-red-50 rounded border border-red-100 mb-4">
+                  <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <p className="text-red-600">
+                    Tem certeza que deseja cancelar a aula de {showCancelConfirmModal.studentName}?
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowCancelConfirmModal({ show: false, scheduleId: null, studentName: null, recurrenceId: null })} disabled={isCanceling} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                    Não, manter
+                  </button>
+                  <button
+                    onClick={() => handleConfirmCancellation('SINGLE')}
+                    disabled={isCanceling}
+                    className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    {isCanceling && cancelType === 'SINGLE' ? 'Cancelando...' : 'Sim, cancelar'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -1381,9 +1406,9 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   className="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-gray-300 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div 
+                    <div
                       className="w-10 h-10 rounded text-white flex items-center justify-center font-medium text-lg"
-                      style={{ 
+                      style={{
                         background: 'linear-gradient(135deg, #FF7F6B 0%, #FF9B8D 100%)'
                       }}
                     >
@@ -1401,53 +1426,33 @@ const SchedulePage: React.FC = (): JSX.Element => {
                       onClick={() => {
                         console.log('Preparando para cancelar o agendamento com ID:', aluno.scheduleId);
 
-                        const horarioComAluno = horariosComAlunos.find(h => h.scheduleIds.includes(Number(aluno.scheduleId)))
+                        const horarioComAluno = horariosComAlunos.find(h => h.scheduleIds.includes(Number(aluno.scheduleId)));
+                        
+                        console.log('Objeto horarioComAluno encontrado:', horarioComAluno);
 
-                        if (horarioComAluno) {
-                          setShowCancelConfirmModal({
-                            show: true,
-                            date: horarioComAluno.dia,
-                            time: horarioComAluno.hora,
-                            studentName: aluno.studentName
-                          })
-                          setModalAlunos(null);
-                        } else{
-                          toast.error("Não foi possivel encontrar horários da aula");
+                        if (!horarioComAluno) {
+                          toast.error("Não foi possível encontrar os dados do agendamento.");
+                          return;
                         }
 
-                        setConfirmingCancelId(aluno.scheduleId);
+                        const alunoIndex = horarioComAluno.scheduleIds.findIndex(id => id === Number(aluno.scheduleId));
 
-                        setShowSlotActionModal(true);
+                        if (alunoIndex === -1) {
+                          toast.error("Não foi possível encontrar o aluno no agendamento.");
+                          return;
+                        }
 
-
-                        // Encontra o horário do aluno para o dia atual
-                        // const horarioComAluno = horariosComAlunos.find(h => {
-                        //   const match = h.alunos.includes(aluno.id);
-                        //   console.log('[CancelButton] Verificando horário:', {
-                        //     horario: h,
-                        //     aluno,
-                        //     match
-                        //   });
-                        //   return match;
-                        // });
+                        const recurrenceId = horarioComAluno.recurrenceIds ? horarioComAluno.recurrenceIds[alunoIndex] : null;
                         
-                        // if (horarioComAluno) {
-                        // console.log('[CancelButton] Horário encontrado:', horarioComAluno);
-                    
-                        //   // Atualiza a interface imediatamente
-                        //   setModalAlunos(prev => prev ? prev.filter(a => a !== aluno) : null);
-                          
-                        // setShowCancelConfirmModal({
-                        //   show: true,
-                        //     date: horarioComAluno.dia,
-                        //     time: horarioComAluno.hora,
-                        //   studentName: aluno.studentName
-                        // });
-                        // } else {
-                        //   console.error('[CancelButton] Horário não encontrado para:', aluno);
-                        //   toast.error('Não foi possível encontrar o horário da aula');
-                        // }
-                       
+                        console.log('recurrenceId extraído:', recurrenceId);
+
+                        setShowCancelConfirmModal({
+                          show: true,
+                          studentName: aluno.studentName,
+                          scheduleId: Number(aluno.scheduleId),
+                          recurrenceId: recurrenceId,
+                        });
+                        setModalAlunos(null);
                       }}
                       className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 text-sm"
                     >
@@ -1458,20 +1463,15 @@ const SchedulePage: React.FC = (): JSX.Element => {
                     </button>
                   )}
                 </div>
-            ))}
+              ))}
             </div>
             {user?.role === "RESPONSAVEL" && (
               <div className="mt-4 flex justify-end">
-                {getFilhosDisponiveis(selectedSlot?.time || '').length > 0 ? (
+                {getFilhosDisponiveis().length > 0 ? (
                   <button
                     onClick={() => {
-                      if (slotActionData) {
+                      if (selectedSlot) {
                         setModalAlunos(null);
-                        setSelectedSlot({
-                          date: slotActionData.date,
-                          time: slotActionData.time
-                        });
-                        setShowSlotActionModal(false);
                         setShowBookingModal(true);
                       }
                     }}
@@ -1502,23 +1502,16 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
                 disabled={isCanceling}
                 onClick={async () => {
-                  if (!confirmingCancelId) return;
-
-                  try {
-                    setIsCanceling(true);
-                    toast.loading('Cancelando agendamento...');   
-                    await handleCancelSchedule(confirmingCancelId);                
-                  // setShowSlotActionModal(false);
-                  //   toast.success(`Aula de ${slotActionData.childName} cancelada com sucesso!`);
-                  } catch (error) {
-                    console.error('[SlotActionModal] Erro ao cancelar:', error);
-                    toast.error('Erro ao cancelar agendamento. Tente novamente.');
-                  } finally {
-                    setIsCanceling(false);
-                    setConfirmingCancelId(null)
-                  }
+                  
+                  setShowCancelConfirmModal({
+                    show: true,
+                    studentName: slotActionData.childName,
+                    scheduleId: slotActionData.scheduleId,
+                    recurrenceId: slotActionData.recurrenceId
+                  })
+                  setShowSlotActionModal(false);
                 }}
-               
+
               >
                 {isCanceling ? (
                   <div className="flex items-center">
