@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
 import { apiService, TeacherDetails } from "../services/api";
@@ -7,12 +7,11 @@ import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
 import scheduleService from "../services/scheduleService";
-import { time } from "framer-motion";
 
 // Tempos disponíveis para agendamento
 const TIME_SLOTS = [
@@ -90,28 +89,41 @@ interface AlunoAgendado {
 const SchedulePage: React.FC = (): JSX.Element => {
   const { user } = useAuth();
   const today = new Date();
-  const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
-  // Inicializa o agendamento com slots vazios
-  const initialSchedule: ScheduleType = {};
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    startOfWeek(today, {weekStartsOn: 1})
+  )
 
-  // Cria 7 dias começando de segunda-feira
-  for (let i = 0; i < 7; i++) {
-    const date = addDays(startDate, i);
-    const dateStr = format(date, "yyyy-MM-dd");
-    initialSchedule[dateStr] = {};
-
-
-    TIME_SLOTS.forEach((time) => {
-      initialSchedule[dateStr][time] = {
-        childId: "",
-        childName: "",
-        booked: false,
-      };
-    });
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prevDate) => addWeeks(prevDate, 1));
   }
 
-  const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
+   const handlePrevWeek = () => {
+    setCurrentWeekStart((prevDate) => subWeeks(prevDate, 1));
+  }
+
+
+  // // Inicializa o agendamento com slots vazios
+  // const initialSchedule: ScheduleType = {};
+
+  // // Cria 7 dias começando de segunda-feira
+  // for (let i = 0; i < 7; i++) {
+  //   const date = addDays(currentWeekStart, i);
+  //   const dateStr = format(date, "yyyy-MM-dd");
+  //   initialSchedule[dateStr] = {};
+
+
+  //   TIME_SLOTS.forEach((time) => {
+  //     initialSchedule[dateStr][time] = {
+  //       childId: "",
+  //       childName: "",
+  //       booked: false,
+  //     };
+  //   });
+  // }
+  // const [schedule, setSchedule] = useState<ScheduleType>(initialSchedule);
+
+
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
   const [userAssociatedPeople, setUserAssociatedPeople] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
@@ -579,6 +591,26 @@ const SchedulePage: React.FC = (): JSX.Element => {
           <p className="mt-1 text-gray-600 mb-4">
             Veja todos os agendamentos da semana.
           </p>
+
+          <div className="flex items-center justify-between mb-4 p-2 bg-white rounded-lg shadow-sm border">
+            <Button variant="secondary" onClick={handlePrevWeek}>
+              <ChevronLeft className="w-5 h-5" />
+              <span className="hidden sm:inline ml-2">Semana Anterior</span>
+            </Button>
+            <div className="text-center">
+              <span className="text-lg font-bold text-gray-800">
+                {format(currentWeekStart, "dd 'de' MMM", {locale: ptBR})} - {' '}
+                {format(addDays(currentWeekStart, 6), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
+              </span>
+            </div>
+            <Button variant="secondary" onClick={handleNextWeek}>
+              <span className="hidden: sm:inline mr-2">
+                Próxima semana
+              </span>
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+          
           <div className="flex-grow overflow-y-auto">
             {/* Desktop view */}
             <div className="hidden md:block w-full">
@@ -586,7 +618,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <div className="grid grid-cols-8 gap-1">
                 <div></div> {/* Empty cell for time column header */}
                 {weekDays.map((day, index) => {
-                  const date = addDays(startDate, index);
+                  const date = addDays(currentWeekStart, index);
                   const isToday =
                     format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
                   return (
@@ -617,7 +649,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
 
                 {Array.from({ length: 7 }).map((_, i) => {
 
-                  const date = addDays(startDate, i);
+                  const date = addDays(currentWeekStart, i);
                   const dateStr = format(date, "yyyy-MM-dd");
                   const TimeNow = new Date();
 
@@ -737,7 +769,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   className="flex items-center gap-2 text-lg font-semibold"
                 >
                   <Calendar className="w-5 h-5" />
-                  {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                  {format(addDays(currentWeekStart, currentDayIndex), "EEEE, dd/MM", {
                     locale: ptBR,
                   })}
                 </Button>
@@ -751,7 +783,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               </div>
               <div className="space-y-1">
                 {(() => {
-                  const date = addDays(startDate, currentDayIndex);
+                  const date = addDays(currentWeekStart, currentDayIndex);
                   const dateStr = format(date, "yyyy-MM-dd");
                   const timeNow = new Date();
 
@@ -846,7 +878,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               >
                 <div className="grid grid-cols-4 gap-3">
                   {Array.from({ length: 7 }).map((_, i) => {
-                    const date = addDays(startDate, i);
+                    const date = addDays(currentWeekStart, i);
                     const isSelected = i === currentDayIndex;
                     return (
                       <button
@@ -886,6 +918,27 @@ const SchedulePage: React.FC = (): JSX.Element => {
             Selecione um horário disponível para agendar a aula do seu filho.
           </p>
 
+          
+          <div className="flex items-center justify-between mb-4 p-2 bg-white rounded-lg shadow-sm border">
+            <Button variant="secondary" onClick={handlePrevWeek}>
+              <ChevronLeft className="w-5 h-5" />
+              <span className="hidden sm:inline ml-2">Semana Anterior</span>
+            </Button>
+            <div className="text-center">
+              <span className="text-lg font-bold text-gray-800">
+                {format(currentWeekStart, "dd 'de' MMM", {locale: ptBR})} - {' '}
+                {format(addDays(currentWeekStart, 6), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
+              </span>
+            </div>
+            <Button variant="secondary" onClick={handleNextWeek}>
+              <span className="hidden: sm:inline mr-2">
+                Próxima semana
+              </span>
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+          
+
           <div className="flex-grow overflow-y-auto">
             {/* Desktop view */}
             <div className="hidden md:block w-full">
@@ -893,7 +946,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <div className="grid grid-cols-8 gap-1">
                 <div></div> {/* Empty cell for time column header */}
                 {weekDays.map((day, index) => {
-                  const date = addDays(startDate, index);
+                  const date = addDays(currentWeekStart, index);
                   const isToday =
                     format(date, "yyyy-MM-dd") ===
                     format(today, "yyyy-MM-dd");
@@ -925,7 +978,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 {Array.from({ length: 7 }).map((_, i) => {
 
                   const TimeNow = new Date();
-                  const date = addDays(startDate, i);
+                  const date = addDays(currentWeekStart, i);
                   const dateStr = format(date, "yyyy-MM-dd");
                   return (
                     <div key={i} className="flex flex-col">
@@ -1034,7 +1087,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   className="flex items-center gap-2 text-lg font-semibold"
                 >
                   <Calendar className="w-5 h-5" />
-                  {format(addDays(startDate, currentDayIndex), "EEEE, dd/MM", {
+                  {format(addDays(currentWeekStart, currentDayIndex), "EEEE, dd/MM", {
                     locale: ptBR,
                   })}
                 </Button>
@@ -1048,7 +1101,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               </div>
               <div className="space-y-1">
                 {(() => {
-                  const date = addDays(startDate, currentDayIndex);
+                  const date = addDays(currentWeekStart, currentDayIndex);
                   const TimeNow = new Date();
                   const dateStr = format(date, "yyyy-MM-dd");
                   return TIME_SLOTS.map((time) => {
@@ -1140,7 +1193,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               >
                 <div className="grid grid-cols-4 gap-3">
                   {Array.from({ length: 7 }).map((_, i) => {
-                    const date = addDays(startDate, i);
+                    const date = addDays(currentWeekStart, i);
                     const isSelected = i === currentDayIndex;
                     return (
                       <button

@@ -64,7 +64,9 @@ const TeacherDashboardPage: React.FC = () => {
   const startDate = startOfWeek(today, { weekStartsOn: 1 });
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
+  
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startDate);
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const [teacherSchedules, setTeacherSchedules] = useState<ScheduledClass[]>(
