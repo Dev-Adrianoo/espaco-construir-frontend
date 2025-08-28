@@ -65,7 +65,7 @@ const TeacherDashboardPage: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startDate);
+  const [currentWeekStart, setDisplayStartDate] = useState<Date>(startDate);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -287,11 +287,13 @@ const TeacherDashboardPage: React.FC = () => {
   };
 
   const handlePreviousWeek = () => {
-    setCurrentWeekStart((prev) => addDays(prev, -7));
+    const daysToMove = isMobile ? -1: -7
+    setDisplayStartDate((prev) => addDays(prev, daysToMove));
   };
 
   const handleNextWeek = () => {
-    setCurrentWeekStart((prev) => addDays(prev, 7));
+    const daysToMove = isMobile ? 1: 7
+    setDisplayStartDate((prev) => addDays(prev, daysToMove));
   };
 
   // Agrupar agendamentos por horário

@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Button from "../components/Button";
-import { apiService, TeacherDetails } from "../services/api";
+import api, { apiService, BookClassPayload, ScheduleDTO, TeacherDetails } from "../services/api";
 import { AxiosError } from "axios";
 import Modal from "../components/Modal";
 import authService from "../services/authService";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { ChevronLeft, ChevronRight, Calendar, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Check, Dot } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import logoEspacoConstruir from "../images/espaco-construir-logo.jpeg";
@@ -76,7 +76,7 @@ interface ScheduleWithStudents {
   alunos: string[];
   studentIds: number[];
   scheduleIds: number[];
-  recurrenceIds?: (string | null)[];
+  recurrenceIds: (string | null)[];
 }
 
 interface AlunoAgendado {
@@ -91,14 +91,14 @@ const SchedulePage: React.FC = (): JSX.Element => {
   const today = new Date();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(
-    startOfWeek(today, {weekStartsOn: 1})
+    startOfWeek(today, { weekStartsOn: 1 })
   )
 
   const handleNextWeek = () => {
     setCurrentWeekStart((prevDate) => addWeeks(prevDate, 1));
   }
 
-   const handlePrevWeek = () => {
+  const handlePrevWeek = () => {
     setCurrentWeekStart((prevDate) => subWeeks(prevDate, 1));
   }
 
@@ -297,6 +297,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
           user.role === "PROFESSORA" ? user.id : undefined
         );
         setHorariosComAlunos(horariosResponse);
+        console.log('Horários recebidos:', horariosResponse);
       } catch (error) {
         console.error('Erro ao atualizar agendamentos:', error);
       }
@@ -320,23 +321,42 @@ const SchedulePage: React.FC = (): JSX.Element => {
       return [];
     }
 
+    const targetDate = new Date(`${date}T12:00:00Z`);
 
-    const horario = horariosComAlunos.find(h => h.dia === date && h.hora === time);
+    const matchingHorarios = horariosComAlunos.filter(horario => {
+      
+      if (horario.hora !== time){
+        return false;
 
-    if (!horario) {
-      return []
-    }
-
-    const alunosCompletos = horario.alunos.map((nome, index) => {
-      return {
-        studentName: nome,
-        id: horario.studentIds[index].toString(),
-        scheduleId: horario.scheduleIds[index].toString(),
-        recurrenceId: horario.recurrenceIds ? horario.recurrenceIds[index] : null
       }
+      if (horario.dia === date) {
+        return true;
+      }
+
+      const originalDate = new Date(`${horario.dia}T12:00:00Z`);
+      const hasRecurrence = horario.recurrenceIds.some(id => id !== null);
+
+      if (hasRecurrence && originalDate < targetDate && originalDate.getDay() === targetDate.getDay()) {
+        return true;
+    
+      }
+
+      return false;
     })
-    return alunosCompletos
-  }
+
+
+  const todosAlunosDoSlot = matchingHorarios.flatMap(horario => 
+ 
+    horario.alunos.map((nome, index) => ({
+      studentName: nome,
+      id: horario.studentIds[index].toString(),
+      scheduleId: horario.scheduleIds[index].toString(),
+      recurrenceId: horario.recurrenceIds[index] || null,
+    }))
+  );
+
+  return todosAlunosDoSlot;
+}
 
   const handleSlotClick = (date: string, time: string) => {
     if (!user) {
@@ -370,6 +390,10 @@ const SchedulePage: React.FC = (): JSX.Element => {
     if (!selectedSlot || !user) return;
 
     try {
+      let bookingPayload: BookClassPayload;
+
+      let newSchedulesDTO: ScheduleDTO[];
+
       if (user.role === 'RESPONSAVEL') {
         if (!selectedTeacherId || selectedChildren.length === 0) {
           toast.error("Por favor, selecione um slot, pelo menos um aluno e uma professora.");
@@ -389,8 +413,8 @@ const SchedulePage: React.FC = (): JSX.Element => {
         const firstChild = userAssociatedPeople.find(child => child.id === selectedChildren[0]);
 
 
-        await apiService.bookClass({
-          studentIds,
+        bookingPayload = ({
+          studentIds: selectedChildren.map(id => Number(id)),
           date: selectedSlot.date,
           time: selectedSlot.time,
           modality: "IN_PERSON",
@@ -400,13 +424,40 @@ const SchedulePage: React.FC = (): JSX.Element => {
           condition: firstChild?.condition || "",
           recurrenceType: isRecurring ? 'WEEKLY' : 'ONCE'
         });
+
+        newSchedulesDTO = await apiService.bookClass(bookingPayload);
+
+        const groupForSlot = new Map<string, ScheduleWithStudents>();
+        newSchedulesDTO.forEach(dto => {
+          const dia = format(new Date(dto.startTime), "yyyy-MM-dd");
+          const hora = format(new Date(dto.startTime), "HH:mm");
+          const slotKey = `${dia}|${hora}`
+
+          if (!groupForSlot.has(slotKey)) {
+            groupForSlot.set(slotKey, { dia, hora, alunos: [], studentIds: [], scheduleIds: [], recurrenceIds: [] })
+          }
+
+
+          const slot = groupForSlot.get(slotKey)
+          if (slot) {
+            slot.alunos.push(dto.studentName);
+            slot.studentIds.push(dto.studentId);
+            slot.scheduleIds.push(dto.id)
+            slot.recurrenceIds.push(dto.recurrenceId);
+          }
+        })
+
+        setHorariosComAlunos(prevHorarios => [...prevHorarios, ...Array.from(groupForSlot.values())]);
         toast.success("Aula agendada com sucesso!");
+
+
 
       } else if (user.role === 'PROFESSORA') {
         if (!selectedStudentId) {
           toast.error("Por favor, selecione um aluno para agendar.");
           return;
         }
+
 
         const studentToBook = userAssociatedPeople.find(student => student.id === selectedStudentId);
 
@@ -417,7 +468,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
         }
         setIsLoadingSchedule(true);
 
-        await apiService.bookClass({
+        bookingPayload = ({
           studentIds: [Number(selectedStudentId)],
           date: selectedSlot.date,
           time: selectedSlot.time,
@@ -428,14 +479,39 @@ const SchedulePage: React.FC = (): JSX.Element => {
           condition: studentToBook.condition || "",
           recurrenceType: isRecurring ? 'WEEKLY' : 'ONCE'
         });
+
+        newSchedulesDTO = await apiService.bookClass(bookingPayload);
+
+        const groupedBySlot = new Map<String, ScheduleWithStudents>();
+        newSchedulesDTO.forEach(dto => {
+          const dia = format(new Date(dto.startTime), "yyyy-MM-dd");
+          const hora = format(new Date(dto.startTime), "HH:mm");
+          const slotKey = `${dia}|${hora}`;
+
+          if (!groupedBySlot.has(slotKey)) {
+            groupedBySlot.set(slotKey, { dia, hora, alunos: [], studentIds: [], scheduleIds: [], recurrenceIds: [] })
+
+          }
+          const slot = groupedBySlot.get(slotKey)
+          if (slot) {
+            slot.alunos.push(dto.studentName);
+            slot.studentIds.push(dto.studentId);
+            slot.scheduleIds.push(dto.id);
+            slot.recurrenceIds.push(dto.recurrenceId);
+
+          }
+        })
+        setHorariosComAlunos(prevHorarios => [...prevHorarios, ...Array.from(groupedBySlot.values())]);
         toast.success("Aula agendada com sucesso!");
+
       }
 
-      await fetchSchedule();
-      setShowBookingModal(false);
-      setSelectedSlot(null);
-      setSelectedChildren([]);
-      setSelectedStudentId('');
+        setShowBookingModal(false);
+        setSelectedSlot(null);
+        setSelectedChildren([]);
+        setSelectedStudentId('');
+        setIsRecurring(false);
+
 
     } catch (error) {
       const err = error as AxiosError<{ message: string }>;
@@ -443,7 +519,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     } finally {
       setIsLoadingSchedule(false);
     }
-  };
+  }
 
   const getFilhosDisponiveis = () => {
     if (!modalAlunos || !userAssociatedPeople) {
@@ -454,42 +530,37 @@ const SchedulePage: React.FC = (): JSX.Element => {
   };
 
   const handleConfirmCancellation = async (scope: "SINGLE" | "ALL_RECURRING") => {
-
-    const scheduleIdToCancel = showCancelConfirmModal.scheduleId;
-
+    const { scheduleId: scheduleIdToCancel, recurrenceId } = showCancelConfirmModal;
+  
     if (!scheduleIdToCancel) {
       toast.error(`Erro: ID do agendamento não encontrado.`);
       return;
     }
-
+  
     setIsCanceling(true);
     setCancelType(scope);
     try {
+     
       await apiService.cancelBooking({
-        scheduleId: Number(showCancelConfirmModal.scheduleId),
+        scheduleId: Number(scheduleIdToCancel),
         scope: scope
       });
-
+  
       toast.success(`Agendamento(s) cancelado(s) com sucesso!`);
 
-      setShowCancelConfirmModal({
-        show: false,
-        scheduleId: null,
-        studentName: '',
-        recurrenceId: null
-      });
-      setModalAlunos(null);
       await fetchSchedule();
-
+  
+      setShowCancelConfirmModal({ show: false, scheduleId: null, studentName: '', recurrenceId: null });
+      setModalAlunos(null);
+  
     } catch (error) {
       console.error(`[handleConfirmCancellation] Erro ao cancelar: `, error);
       toast.error(`Erro ao cancelar agendamento. Tente novamente.`);
-
     } finally {
       setIsCanceling(false);
       setCancelType(null);
     }
-  }
+  };
 
   const handleModalClose = () => {
     setShowBookingModal(false);
@@ -509,7 +580,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
     setCurrentDayIndex((prev) => Math.min(6, prev + 1));
   };
 
-  // Atualiza a condição de loading baseada no papel do usuário
+ 
   const isLoading = user?.role === "RESPONSAVEL"
     ? loadingChildren || loadingSchedule || loadingTeachers
     : loadingSchedule;
@@ -599,7 +670,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
             </Button>
             <div className="text-center">
               <span className="text-lg font-bold text-gray-800">
-                {format(currentWeekStart, "dd 'de' MMM", {locale: ptBR})} - {' '}
+                {format(currentWeekStart, "dd 'de' MMM", { locale: ptBR })} - {' '}
                 {format(addDays(currentWeekStart, 6), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
               </span>
             </div>
@@ -610,7 +681,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
-          
+
           <div className="flex-grow overflow-y-auto">
             {/* Desktop view */}
             <div className="hidden md:block w-full">
@@ -918,7 +989,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
             Selecione um horário disponível para agendar a aula do seu filho.
           </p>
 
-          
+
           <div className="flex items-center justify-between mb-4 p-2 bg-white rounded-lg shadow-sm border">
             <Button variant="secondary" onClick={handlePrevWeek}>
               <ChevronLeft className="w-5 h-5" />
@@ -926,7 +997,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
             </Button>
             <div className="text-center">
               <span className="text-lg font-bold text-gray-800">
-                {format(currentWeekStart, "dd 'de' MMM", {locale: ptBR})} - {' '}
+                {format(currentWeekStart, "dd 'de' MMM", { locale: ptBR })} - {' '}
                 {format(addDays(currentWeekStart, 6), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
               </span>
             </div>
@@ -937,7 +1008,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
-          
+
 
           <div className="flex-grow overflow-y-auto">
             {/* Desktop view */}
@@ -1376,14 +1447,20 @@ const SchedulePage: React.FC = (): JSX.Element => {
       {showCancelConfirmModal.show && (
         <Modal
           isOpen={showCancelConfirmModal.show}
-          onClose={() => !isCanceling && setShowCancelConfirmModal({ show: false, scheduleId: null, studentName: null, recurrenceId: null })}
+          onClose={() => !isCanceling && 
+            setShowCancelConfirmModal({
+              show: false, 
+              scheduleId: null, 
+              studentName: null, 
+              recurrenceId: null 
+            })}
           title="Confirmar Cancelamento"
           zIndex={2000}
         >
           <div className="p-4">
-           
+
             {showCancelConfirmModal.recurrenceId ? (
-              
+
               <div>
                 <div className="flex items-center gap-3 p-3 bg-red-50 rounded border border-red-100 mb-4">
                   <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center flex-shrink-0">
@@ -1397,19 +1474,44 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 </div>
                 <div className="flex flex-col gap-2 mt-4">
                   <button
-                    onClick={() => handleConfirmCancellation('SINGLE')}
+                    onClick={() => handleConfirmCancellation("SINGLE")}
                     disabled={isCanceling}
                     className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
                   >
-                    {isCanceling && cancelType === 'SINGLE' ? 'Aguarde...' : 'Cancelar apenas esta aula'}
+                    {isCanceling && cancelType === "SINGLE"
+                      ? "Aguarde..."
+                      : "Cancelar apenas esta aula"}
                   </button>
                   <button
-                    onClick={() => handleConfirmCancellation('ALL_RECURRING')}
+                    onClick={() => handleConfirmCancellation("ALL_RECURRING")}
                     disabled={isCanceling}
                     className="w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
                   >
-                    {isCanceling && cancelType === 'ALL_RECURRING' ? (<svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : null}
-                    {isCanceling && cancelType === 'ALL_RECURRING' ? 'Cancelando...' : 'Cancelar esta e todas as futuras'}
+                    {isCanceling && cancelType === "ALL_RECURRING" ? (
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : null}
+                    {isCanceling && cancelType === "ALL_RECURRING"
+                      ? "Cancelando..."
+                      : "Cancelar esta e todas as futuras"}
                   </button>
                 </div>
               </div>
@@ -1417,24 +1519,49 @@ const SchedulePage: React.FC = (): JSX.Element => {
               <div>
                 <div className="flex items-center gap-3 p-3 bg-red-50 rounded border border-red-100 mb-4">
                   <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-red-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
                   </div>
                   <p className="text-red-600">
-                    Tem certeza que deseja cancelar a aula de {showCancelConfirmModal.studentName}?
+                    Tem certeza que deseja cancelar a aula de{" "}
+                    {showCancelConfirmModal.studentName}?
                   </p>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setShowCancelConfirmModal({ show: false, scheduleId: null, studentName: null, recurrenceId: null })} disabled={isCanceling} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                  <button
+                    onClick={() =>
+                      setShowCancelConfirmModal({
+                        show: false,
+                        scheduleId: null,
+                        studentName: null,
+                        recurrenceId: null,
+                      })
+                    }
+                    disabled={isCanceling}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  >
                     Não, manter
                   </button>
                   <button
-                    onClick={() => handleConfirmCancellation('SINGLE')}
+                    onClick={() => handleConfirmCancellation("SINGLE")}
                     disabled={isCanceling}
                     className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
                   >
-                    {isCanceling && cancelType === 'SINGLE' ? 'Cancelando...' : 'Sim, cancelar'}
+                    {isCanceling && cancelType === "SINGLE"
+                      ? "Cancelando..."
+                      : "Sim, cancelar"}
                   </button>
                 </div>
               </div>
@@ -1477,33 +1604,11 @@ const SchedulePage: React.FC = (): JSX.Element => {
                   {(user?.role === "RESPONSAVEL" || user?.role === "PROFESSORA") && (
                     <button
                       onClick={() => {
-                        console.log('Preparando para cancelar o agendamento com ID:', aluno.scheduleId);
-
-                        const horarioComAluno = horariosComAlunos.find(h => h.scheduleIds.includes(Number(aluno.scheduleId)));
-                        
-                        console.log('Objeto horarioComAluno encontrado:', horarioComAluno);
-
-                        if (!horarioComAluno) {
-                          toast.error("Não foi possível encontrar os dados do agendamento.");
-                          return;
-                        }
-
-                        const alunoIndex = horarioComAluno.scheduleIds.findIndex(id => id === Number(aluno.scheduleId));
-
-                        if (alunoIndex === -1) {
-                          toast.error("Não foi possível encontrar o aluno no agendamento.");
-                          return;
-                        }
-
-                        const recurrenceId = horarioComAluno.recurrenceIds ? horarioComAluno.recurrenceIds[alunoIndex] : null;
-                        
-                        console.log('recurrenceId extraído:', recurrenceId);
-
                         setShowCancelConfirmModal({
                           show: true,
                           studentName: aluno.studentName,
                           scheduleId: Number(aluno.scheduleId),
-                          recurrenceId: recurrenceId,
+                          recurrenceId: aluno.recurrenceId,
                         });
                         setModalAlunos(null);
                       }}
@@ -1555,7 +1660,7 @@ const SchedulePage: React.FC = (): JSX.Element => {
                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
                 disabled={isCanceling}
                 onClick={async () => {
-                  
+
                   setShowCancelConfirmModal({
                     show: true,
                     studentName: slotActionData.childName,

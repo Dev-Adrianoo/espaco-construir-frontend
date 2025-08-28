@@ -4,17 +4,19 @@ import { Student } from './studentService';
 export interface ScheduleDTO {
   id: number;
   studentId: number;
+  studentName: string;
   teacherId: number | null;
-  startTime: string;
+  startTime: string; 
   endTime: string;
-  subject: string;
-  description: string;
-  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  meetingLink: string | null;
-  modality: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
-  studentName?: string;
   difficulties: string;
   condition: string;
+  meetingLink: string | null;
+  status: string;
+  modality: string; 
+  subject: string | null;
+  description: string | null;
+  recurrenceType: 'WEEKLY' | 'ONCE';
+  recurrenceId: string | null;
 }
 
 export interface ResetPasswordData {
@@ -181,7 +183,7 @@ export const apiService = {
   },
 
   cancelBooking: (payload: CancellationRequestPayload) =>
-    api.post('/schedules/cancel', payload),
+    api.put('/schedules/cancel', payload),
 
 
 
@@ -270,7 +272,10 @@ export const apiService = {
   getCurrentGuardian: () => api.get('/guardians/me'),
   getCurrentTeacher: () => api.get('/teachers/me'),
 
-  bookClass: (payload: BookClassPayload) => api.post('/schedules/book', payload),
+  bookClass: async (payload: BookClassPayload): Promise<ScheduleDTO[]> => {
+    const response = await api.post('/schedules/book', payload);
+    return response.data
+  },
 
   getSchedulesByStudentId: (studentId: number) => 
     api.get<ScheduleDTO[]>(`/schedules/student/${studentId}`),
